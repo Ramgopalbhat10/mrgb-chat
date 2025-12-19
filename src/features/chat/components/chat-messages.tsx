@@ -9,7 +9,9 @@ interface ChatMessagesProps {
 
 function getMessageText(message: UIMessage): string {
   return message.parts
-    .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+    .filter(
+      (part): part is { type: 'text'; text: string } => part.type === 'text',
+    )
     .map((part) => part.text)
     .join('')
 }
@@ -28,13 +30,13 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
         const text = getMessageText(message)
         const isUser = message.role === 'user'
         const isLastAssistant = message.id === lastMessage?.id && !isUser
-        
+
         return (
           <div
             key={message.id}
             className={cn(
               'flex flex-col gap-1.5',
-              isUser ? 'items-end' : 'items-start'
+              isUser ? 'items-end' : 'items-start',
             )}
           >
             <div
@@ -42,17 +44,21 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
                 'rounded-md text-sm leading-relaxed',
                 isUser
                   ? 'bg-secondary px-3 py-2 text-foreground border border-secondary max-w-[85%]'
-                  : 'text-foreground w-full'
+                  : 'text-foreground w-full',
               )}
             >
               {isUser ? (
                 <p className="whitespace-pre-wrap">{text}</p>
               ) : (
-                <div className={cn(
-                  'prose prose-sm prose-invert max-w-none',
-                  // Smooth text appearance for streaming
-                  isLastAssistant && isStreaming && '**:animate-in **:fade-in **:duration-150'
-                )}>
+                <div
+                  className={cn(
+                    'prose prose-sm prose-invert max-w-none',
+                    // Smooth text appearance for streaming
+                    isLastAssistant &&
+                      isStreaming &&
+                      '**:animate-in **:fade-in **:duration-150',
+                  )}
+                >
                   <Streamdown>{text}</Streamdown>
                 </div>
               )}

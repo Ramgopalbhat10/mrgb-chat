@@ -11,32 +11,28 @@ export const CACHE_TTL = {
 
 export const cacheKeys = {
   // Conversation keys
-  conversationList: (cursor?: string) => 
+  conversationList: (cursor?: string) =>
     cursor ? `conv:list:${cursor}` : 'conv:list:recent',
-  
-  conversation: (id: string) => 
-    `conv:${id}`,
-  
-  conversationMessages: (conversationId: string, cursor?: string) => 
-    cursor ? `conv:${conversationId}:msgs:${cursor}` : `conv:${conversationId}:msgs:latest`,
-  
+
+  conversation: (id: string) => `conv:${id}`,
+
+  conversationMessages: (conversationId: string, cursor?: string) =>
+    cursor
+      ? `conv:${conversationId}:msgs:${cursor}`
+      : `conv:${conversationId}:msgs:latest`,
+
   // Project keys
-  projectList: () => 
-    'project:list',
-  
-  project: (id: string) => 
-    `project:${id}`,
-  
-  projectConversations: (projectId: string) => 
-    `project:${projectId}:convs`,
+  projectList: () => 'project:list',
+
+  project: (id: string) => `project:${id}`,
+
+  projectConversations: (projectId: string) => `project:${projectId}:convs`,
 
   // Session keys
-  session: (sessionId: string) => 
-    `session:${sessionId}`,
-  
+  session: (sessionId: string) => `session:${sessionId}`,
+
   // User keys
-  user: (userId: string) => 
-    `user:${userId}`,
+  user: (userId: string) => `user:${userId}`,
 } as const
 
 // Helper to invalidate related keys
@@ -46,18 +42,18 @@ export const invalidationPatterns = {
     cacheKeys.conversation(conversationId),
     `conv:${conversationId}:msgs:*`,
   ],
-  
+
   onConversationUpdate: (conversationId: string) => [
     cacheKeys.conversationList(),
     cacheKeys.conversation(conversationId),
   ],
-  
+
   onConversationDelete: (conversationId: string) => [
     cacheKeys.conversationList(),
     cacheKeys.conversation(conversationId),
     `conv:${conversationId}:*`,
   ],
-  
+
   onProjectUpdate: (projectId: string) => [
     cacheKeys.projectList(),
     cacheKeys.project(projectId),

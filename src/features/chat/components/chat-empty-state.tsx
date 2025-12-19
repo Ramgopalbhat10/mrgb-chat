@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { 
+import {
   Attachment01Icon,
   AiBrain01Icon,
   Search01Icon,
@@ -14,32 +14,45 @@ export function ChatEmptyState() {
           What can I help you with?
         </h1>
         <p className="text-sm text-muted-foreground/70 mb-8">
-          Ask me anything. I can help with writing, analysis, coding, math, and more.
+          Ask me anything. I can help with writing, analysis, coding, math, and
+          more.
         </p>
-        
+
         <div className="flex items-center justify-center gap-2 flex-wrap">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             className="h-8 px-3 text-xs gap-2 bg-card border-border hover:bg-accent"
           >
-            <HugeiconsIcon icon={Attachment01Icon} size={14} className="text-muted-foreground" />
+            <HugeiconsIcon
+              icon={Attachment01Icon}
+              size={14}
+              className="text-muted-foreground"
+            />
             Attach file
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             className="h-8 px-3 text-xs gap-2 bg-card border-border hover:bg-accent"
           >
-            <HugeiconsIcon icon={AiBrain01Icon} size={14} className="text-muted-foreground" />
+            <HugeiconsIcon
+              icon={AiBrain01Icon}
+              size={14}
+              className="text-muted-foreground"
+            />
             Select model
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             className="h-8 px-3 text-xs gap-2 bg-card border-border hover:bg-accent"
           >
-            <HugeiconsIcon icon={Search01Icon} size={14} className="text-muted-foreground" />
+            <HugeiconsIcon
+              icon={Search01Icon}
+              size={14}
+              className="text-muted-foreground"
+            />
             Web search
           </Button>
         </div>

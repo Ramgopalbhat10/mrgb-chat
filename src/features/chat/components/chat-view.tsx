@@ -15,49 +15,70 @@ import type { UIMessage } from 'ai'
 
 interface ChatViewProps {
   conversationId: string
-  onFirstMessage?: (userMessage: string) => void
-  isNewChat?: boolean
   initialMessages?: UIMessage[]
+  pendingMessage?: string | null // Initial message from /new to send to AI
 }
 
-export function ChatView({ conversationId, onFirstMessage, isNewChat = false, initialMessages = [] }: ChatViewProps) {
+export function ChatView({
+  conversationId,
+  initialMessages = [],
+  pendingMessage = null,
+}: ChatViewProps) {
   const [input, setInput] = useState('')
-  const hasCalledOnFirstMessage = useRef(false)
-  const firstUserMessageRef = useRef<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const persistedMessageIds = useRef<Set<string>>(new Set())
+  const hasSentPendingMessage = useRef(false)
 
   const conversations = useAppStore((state) => state.conversations)
   const titleLoadingIds = useAppStore((state) => state.titleLoadingIds)
-  
+
   const conversation = conversations.find((c) => c.id === conversationId)
   const title = conversation?.title
   const titleIsLoading = titleLoadingIds.has(conversationId)
 
   // Memoize transport to prevent re-creation on each render
-  const transport = useMemo(() => new DefaultChatTransport({ api: '/api/chat' }), [])
+  const transport = useMemo(
+    () => new DefaultChatTransport({ api: '/api/chat' }),
+    [],
+  )
 
-  // Extract text content from UIMessage parts
+  // Extract text content from UIMessage - handles both parts array and content string
   const getMessageContent = useCallback((message: UIMessage): string => {
-    if (!message.parts) return ''
-    return message.parts
-      .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
-      .map(part => part.text)
-      .join('')
+    // User messages from useChat usually have 'content' string
+    // casting to any to avoid type issues if UIMessage definition is strict
+    const msg = message as any
+    if (typeof msg.content === 'string' && msg.content.length > 0) {
+      return msg.content
+    }
+    
+    // Assistant messages (or others) might use parts
+    if (message.parts && message.parts.length > 0) {
+      return message.parts
+        .filter(
+          (part): part is { type: 'text'; text: string } => part.type === 'text',
+        )
+        .map((part) => part.text)
+        .join('')
+    }
+    
+    // Debug log if content missing
+    console.warn('getMessageContent: Empty content', message)
+    return ''
   }, [])
 
-  // Persist a single message to IndexedDB
-  const persistMessage = useCallback(async (message: UIMessage) => {
-    // Skip if already persisted
-    if (persistedMessageIds.current.has(message.id)) return
-    
-    const content = getMessageContent(message)
-    // Skip empty messages (streaming in progress)
-    if (!content) return
-    
-    try {
-      persistedMessageIds.current.add(message.id)
-      await db.createMessage({
+  // Persist a single message to IndexedDB and server
+  const persistMessage = useCallback(
+    async (message: UIMessage) => {
+      // Skip if already persisted
+      if (persistedMessageIds.current.has(message.id)) return
+
+      const content = getMessageContent(message)
+      // Skip empty messages (streaming in progress)
+      if (!content) return
+
+      console.log('Persisting message:', { id: message.id, role: message.role, contentLength: content.length })
+
+      const messageData = {
         id: message.id,
         conversationId,
         role: message.role as 'user' | 'assistant' | 'system' | 'tool',
@@ -65,12 +86,32 @@ export function ChatView({ conversationId, onFirstMessage, isNewChat = false, in
         clientId: null,
         metaJson: null,
         createdAt: new Date(),
-      })
-    } catch (error) {
-      console.error('Failed to persist message:', error)
-      persistedMessageIds.current.delete(message.id)
-    }
-  }, [conversationId, getMessageContent])
+      }
+
+      try {
+        persistedMessageIds.current.add(message.id)
+
+        // Persist to IndexedDB (local-first)
+        await db.createMessage(messageData)
+
+        // Persist to server (fire-and-forget, don't block on it)
+        // The server endpoint handles conversation creation if missing (via onConflictDoNothing)
+        fetch(`/api/conversations/${conversationId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(messageData),
+        }).then(res => {
+            if (!res.ok) console.error('Server persistence failed:', res.status, res.statusText)
+        }).catch((error) => {
+          console.error('Failed to persist message to server:', error)
+        })
+      } catch (error) {
+        console.error('Failed to persist message:', error)
+        persistedMessageIds.current.delete(message.id)
+      }
+    },
+    [conversationId, getMessageContent],
+  )
 
   const { messages, sendMessage, status, setMessages } = useChat({
     id: conversationId,
@@ -81,18 +122,12 @@ export function ChatView({ conversationId, onFirstMessage, isNewChat = false, in
     },
   })
 
-  // Persist user messages when they appear in the messages array
-  // This ensures we use the correct ID that useChat assigns
-  useEffect(() => {
-    const userMessages = messages.filter(m => m.role === 'user')
-    userMessages.forEach(msg => {
-      persistMessage(msg)
-    })
-  }, [messages, persistMessage])
+  // User messages are persisted manually in handleSubmit for reliability
+  // This ensures they're saved before any re-renders or navigation
 
   // Mark initial messages as already persisted
   useEffect(() => {
-    initialMessages.forEach(msg => {
+    initialMessages.forEach((msg) => {
       persistedMessageIds.current.add(msg.id)
     })
   }, [initialMessages])
@@ -106,19 +141,52 @@ export function ChatView({ conversationId, onFirstMessage, isNewChat = false, in
     }
   }, [initialMessages, setMessages])
 
+  // Handle pending message from /new route - send to AI and persist
+  useEffect(() => {
+    if (pendingMessage && !hasSentPendingMessage.current) {
+      hasSentPendingMessage.current = true
+
+      // Send message to AI
+      sendMessage({ text: pendingMessage })
+
+      // Persist user message
+      const userMessageId = crypto.randomUUID()
+      const userMessageData = {
+        id: userMessageId,
+        conversationId,
+        role: 'user' as const,
+        content: pendingMessage,
+        clientId: null,
+        metaJson: null,
+        createdAt: new Date(),
+      }
+
+      persistedMessageIds.current.add(userMessageId)
+
+      db.createMessage(userMessageData).catch((error) => {
+        console.error('Failed to persist user message to IndexedDB:', error)
+      })
+
+      // Persist to server
+      fetch(`/api/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userMessageData),
+      }).catch(console.error)
+    }
+  }, [pendingMessage, conversationId, sendMessage])
+
   const isLoading = status === 'streaming' || status === 'submitted'
   const hasMessages = messages.length > 0
 
+  // Debug: log messages and status changes
   useEffect(() => {
-    if (messages.length > 0 && !hasCalledOnFirstMessage.current && firstUserMessageRef.current) {
-      hasCalledOnFirstMessage.current = true
-      // Defer to next tick to avoid interfering with streaming startup
-      // Store updates from onFirstMessage can cause re-renders that disrupt initial streaming
-      setTimeout(() => {
-        onFirstMessage?.(firstUserMessageRef.current!)
-      }, 0)
-    }
-  }, [messages.length, onFirstMessage])
+    console.log('useChat state:', { 
+      status, 
+      messageCount: messages.length,
+      messages: messages.map(m => ({ id: m.id, role: m.role, partsCount: m.parts?.length }))
+    })
+  }, [messages, status])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -126,27 +194,49 @@ export function ChatView({ conversationId, onFirstMessage, isNewChat = false, in
     }
   }, [messages])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
-    
+
     const userText = input.trim()
-    
-    // Store the first user message for title generation
-    if (!firstUserMessageRef.current) {
-      firstUserMessageRef.current = userText
-    }
-    
-    // Send message - useChat will add it to messages array with its own ID
-    // The useEffect above will persist it with the correct ID
-    sendMessage({ text: userText })
     setInput('')
+
+    // Send message to AI - useChat will handle adding the message and streaming
+    sendMessage({ text: userText })
+
+    // Persist user message after a short delay to not interfere with useChat state
+    setTimeout(async () => {
+      const userMessageId = crypto.randomUUID()
+      const userMessageData = {
+        id: userMessageId,
+        conversationId,
+        role: 'user' as const,
+        content: userText,
+        clientId: null,
+        metaJson: null,
+        createdAt: new Date(),
+      }
+
+      persistedMessageIds.current.add(userMessageId)
+
+      try {
+        await db.createMessage(userMessageData)
+      } catch (error) {
+        console.error('Failed to persist user message to IndexedDB:', error)
+      }
+
+      // Persist to server (fire-and-forget)
+      fetch(`/api/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userMessageData),
+      }).catch(console.error)
+    }, 100)
   }
 
-  // Determine if we should show the header
-  // Don't show on new chat until there are messages
-  const showHeader = !isNewChat || hasMessages
-  
+  // Always show header for existing conversations
+  const showHeader = true
+
   // Get sidebar state for toggle button on empty new chat
   const { state: sidebarState, toggleSidebar } = useSidebar()
   const isSidebarClosed = sidebarState === 'collapsed'
@@ -154,16 +244,15 @@ export function ChatView({ conversationId, onFirstMessage, isNewChat = false, in
   return (
     <div className="flex flex-col h-full bg-background relative">
       {showHeader ? (
-        <ChatHeader 
-          title={title} 
-          isLoading={titleIsLoading} 
-        />
+        <ChatHeader title={title} isLoading={titleIsLoading} />
       ) : (
         // Sidebar toggle - absolutely positioned to avoid layout shift
         // Uses CSS transition delay to wait for sidebar close animation
-        <div 
+        <div
           className={`absolute top-3 left-4 z-10 transition-opacity duration-150 ${
-            isSidebarClosed ? 'opacity-100 delay-200' : 'opacity-0 pointer-events-none delay-0'
+            isSidebarClosed
+              ? 'opacity-100 delay-200'
+              : 'opacity-0 pointer-events-none delay-0'
           }`}
         >
           <Button

@@ -17,8 +17,8 @@ export function ChatInput({
 }: ChatInputProps) {
   return (
     <div className="p-4 max-w-3xl mx-auto w-full">
-      <form 
-        onSubmit={onSubmit} 
+      <form
+        onSubmit={onSubmit}
         className="flex items-center gap-3 bg-card border border-border rounded-md p-2 focus-within:border-primary/50 transition-colors"
       >
         <input
@@ -28,9 +28,9 @@ export function ChatInput({
           disabled={isLoading}
           className="ml-2 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
         />
-        <Button 
-          type="submit" 
-          disabled={isLoading || !input.trim()} 
+        <Button
+          type="submit"
+          disabled={isLoading || !input.trim()}
           size="icon"
           variant="default"
           className="h-8 w-8 text-foreground bg-primary disabled:opacity-30"

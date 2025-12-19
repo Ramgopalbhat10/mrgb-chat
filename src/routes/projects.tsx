@@ -24,11 +24,18 @@ function ProjectsPage() {
         {projects.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-              <HugeiconsIcon icon={Folder01Icon} size={24} className="text-muted-foreground" />
+              <HugeiconsIcon
+                icon={Folder01Icon}
+                size={24}
+                className="text-muted-foreground"
+              />
             </div>
-            <h2 className="text-lg font-medium text-foreground mb-2">No projects yet</h2>
+            <h2 className="text-lg font-medium text-foreground mb-2">
+              No projects yet
+            </h2>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Create a project to organize your conversations by topic or context.
+              Create a project to organize your conversations by topic or
+              context.
             </p>
           </div>
         ) : (
@@ -40,7 +47,11 @@ function ProjectsPage() {
               >
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <HugeiconsIcon icon={Folder01Icon} size={20} className="text-primary" />
+                    <HugeiconsIcon
+                      icon={Folder01Icon}
+                      size={20}
+                      className="text-primary"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-medium text-foreground truncate">

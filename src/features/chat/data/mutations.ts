@@ -12,7 +12,9 @@ export function useCreateConversation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (data: Omit<NewConversation, 'id' | 'createdAt' | 'updatedAt'>) => {
+    mutationFn: async (
+      data: Omit<NewConversation, 'id' | 'createdAt' | 'updatedAt'>,
+    ) => {
       const response = await fetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -29,7 +31,7 @@ export function useCreateConversation() {
 
       // Snapshot previous value
       const previousConversations = queryClient.getQueryData<Conversation[]>(
-        conversationKeys.list()
+        conversationKeys.list(),
       )
 
       // Optimistically add new conversation
@@ -44,7 +46,7 @@ export function useCreateConversation() {
 
       queryClient.setQueryData<Conversation[]>(
         conversationKeys.list(),
-        (old) => [optimisticConversation, ...(old ?? [])]
+        (old) => [optimisticConversation, ...(old ?? [])],
       )
 
       return { previousConversations, optimisticId: optimisticConversation.id }
@@ -54,7 +56,7 @@ export function useCreateConversation() {
       if (context?.previousConversations) {
         queryClient.setQueryData(
           conversationKeys.list(),
-          context.previousConversations
+          context.previousConversations,
         )
       }
     },
@@ -64,8 +66,8 @@ export function useCreateConversation() {
         conversationKeys.list(),
         (old) =>
           old?.map((conv) =>
-            conv.id === context?.optimisticId ? data : conv
-          ) ?? [data]
+            conv.id === context?.optimisticId ? data : conv,
+          ) ?? [data],
       )
     },
     onSettled: () => {
@@ -80,7 +82,10 @@ export function useUpdateConversation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, ...data }: Partial<Conversation> & { id: string }) => {
+    mutationFn: async ({
+      id,
+      ...data
+    }: Partial<Conversation> & { id: string }) => {
       const response = await fetch(`/api/conversations/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -92,34 +97,36 @@ export function useUpdateConversation() {
       return response.json() as Promise<Conversation>
     },
     onMutate: async (updatedConversation) => {
-      await queryClient.cancelQueries({ 
-        queryKey: conversationKeys.detail(updatedConversation.id) 
+      await queryClient.cancelQueries({
+        queryKey: conversationKeys.detail(updatedConversation.id),
       })
       await queryClient.cancelQueries({ queryKey: conversationKeys.lists() })
 
       const previousConversation = queryClient.getQueryData<Conversation>(
-        conversationKeys.detail(updatedConversation.id)
+        conversationKeys.detail(updatedConversation.id),
       )
       const previousList = queryClient.getQueryData<Conversation[]>(
-        conversationKeys.list()
+        conversationKeys.list(),
       )
 
       // Optimistic update
       if (previousConversation) {
         queryClient.setQueryData<Conversation>(
           conversationKeys.detail(updatedConversation.id),
-          { ...previousConversation, ...updatedConversation, updatedAt: new Date() }
+          {
+            ...previousConversation,
+            ...updatedConversation,
+            updatedAt: new Date(),
+          },
         )
       }
 
-      queryClient.setQueryData<Conversation[]>(
-        conversationKeys.list(),
-        (old) =>
-          old?.map((conv) =>
-            conv.id === updatedConversation.id
-              ? { ...conv, ...updatedConversation, updatedAt: new Date() }
-              : conv
-          )
+      queryClient.setQueryData<Conversation[]>(conversationKeys.list(), (old) =>
+        old?.map((conv) =>
+          conv.id === updatedConversation.id
+            ? { ...conv, ...updatedConversation, updatedAt: new Date() }
+            : conv,
+        ),
       )
 
       return { previousConversation, previousList }
@@ -128,7 +135,7 @@ export function useUpdateConversation() {
       if (context?.previousConversation) {
         queryClient.setQueryData(
           conversationKeys.detail(variables.id),
-          context.previousConversation
+          context.previousConversation,
         )
       }
       if (context?.previousList) {
@@ -136,8 +143,8 @@ export function useUpdateConversation() {
       }
     },
     onSettled: (_data, _error, variables) => {
-      queryClient.invalidateQueries({ 
-        queryKey: conversationKeys.detail(variables.id) 
+      queryClient.invalidateQueries({
+        queryKey: conversationKeys.detail(variables.id),
       })
       queryClient.invalidateQueries({ queryKey: conversationKeys.lists() })
     },
@@ -161,13 +168,12 @@ export function useDeleteConversation() {
       await queryClient.cancelQueries({ queryKey: conversationKeys.lists() })
 
       const previousConversations = queryClient.getQueryData<Conversation[]>(
-        conversationKeys.list()
+        conversationKeys.list(),
       )
 
       // Optimistically remove
-      queryClient.setQueryData<Conversation[]>(
-        conversationKeys.list(),
-        (old) => old?.filter((conv) => conv.id !== deletedId)
+      queryClient.setQueryData<Conversation[]>(conversationKeys.list(), (old) =>
+        old?.filter((conv) => conv.id !== deletedId),
       )
 
       return { previousConversations }
@@ -176,7 +182,7 @@ export function useDeleteConversation() {
       if (context?.previousConversations) {
         queryClient.setQueryData(
           conversationKeys.list(),
-          context.previousConversations
+          context.previousConversations,
         )
       }
     },
@@ -192,19 +198,22 @@ export function useSendMessage(conversationId: string) {
 
   return useMutation({
     mutationFn: async (content: string) => {
-      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, role: 'user' }),
-      })
+      const response = await fetch(
+        `/api/conversations/${conversationId}/messages`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content, role: 'user' }),
+        },
+      )
       if (!response.ok) {
         throw new Error('Failed to send message')
       }
       return response.json() as Promise<Message>
     },
     onMutate: async (content) => {
-      await queryClient.cancelQueries({ 
-        queryKey: conversationKeys.messages(conversationId) 
+      await queryClient.cancelQueries({
+        queryKey: conversationKeys.messages(conversationId),
       })
 
       const clientId = generateClientId()
@@ -224,7 +233,7 @@ export function useSendMessage(conversationId: string) {
         (old) => ({
           messages: [...(old?.messages ?? []), optimisticMessage],
           nextCursor: old?.nextCursor,
-        })
+        }),
       )
 
       return { optimisticMessage }
@@ -235,11 +244,12 @@ export function useSendMessage(conversationId: string) {
         queryClient.setQueryData<{ messages: Message[]; nextCursor?: string }>(
           conversationKeys.messagesPage(conversationId),
           (old) => ({
-            messages: old?.messages?.filter(
-              (m) => m.id !== context.optimisticMessage.id
-            ) ?? [],
+            messages:
+              old?.messages?.filter(
+                (m) => m.id !== context.optimisticMessage.id,
+              ) ?? [],
             nextCursor: old?.nextCursor,
-          })
+          }),
         )
       }
     },
@@ -249,15 +259,15 @@ export function useSendMessage(conversationId: string) {
         conversationKeys.messagesPage(conversationId),
         (old) => ({
           messages: old?.messages?.map((m) =>
-            m.id === context?.optimisticMessage.id ? data : m
+            m.id === context?.optimisticMessage.id ? data : m,
           ) ?? [data],
           nextCursor: old?.nextCursor,
-        })
+        }),
       )
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: conversationKeys.messages(conversationId) 
+      queryClient.invalidateQueries({
+        queryKey: conversationKeys.messages(conversationId),
       })
       queryClient.invalidateQueries({ queryKey: conversationKeys.lists() })
     },

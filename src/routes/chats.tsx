@@ -23,11 +23,18 @@ function ChatsPage() {
         {conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-              <HugeiconsIcon icon={Message01Icon} size={24} className="text-muted-foreground" />
+              <HugeiconsIcon
+                icon={Message01Icon}
+                size={24}
+                className="text-muted-foreground"
+              />
             </div>
-            <h2 className="text-lg font-medium text-foreground mb-2">No conversations yet</h2>
+            <h2 className="text-lg font-medium text-foreground mb-2">
+              No conversations yet
+            </h2>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Start a new chat to begin a conversation. Your chat history will appear here.
+              Start a new chat to begin a conversation. Your chat history will
+              appear here.
             </p>
           </div>
         ) : (
@@ -40,7 +47,11 @@ function ChatsPage() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0 flex items-center gap-3">
-                    <HugeiconsIcon icon={Message01Icon} size={16} className="text-muted-foreground shrink-0" />
+                    <HugeiconsIcon
+                      icon={Message01Icon}
+                      size={16}
+                      className="text-muted-foreground shrink-0"
+                    />
                     <h3 className="text-sm font-medium text-foreground truncate">
                       {conversation.title}
                     </h3>

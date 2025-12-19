@@ -64,9 +64,9 @@ This document is written for an “agentic” workflow: it defines the product r
 
 - **Optimistic updates everywhere**: creating chats/messages, renaming, starring, adding to project, deleting.
 - **Cache-first reads**:
-  1) Browser local cache
-  2) Redis
-  3) Turso
+  1. Browser local cache
+  2. Redis
+  3. Turso
 - **Slick feel**:
   - No blocking spinners for typical actions.
   - Use skeletons only for true cold starts.
@@ -151,7 +151,7 @@ Notes:
 ### “Existing GitHub session” expectations
 
 - OAuth sessions are **app-specific**. You cannot directly reuse another app’s session cookie.
-- What you *can* rely on:
+- What you _can_ rely on:
   - If you’re already signed into GitHub in the browser, the OAuth redirect will typically not require entering credentials.
   - If the same GitHub OAuth App (client id/secret) has already been authorized previously, GitHub often skips/auto-approves the consent step.
 - Therefore the UX goal is:
@@ -296,12 +296,12 @@ This app needs durable storage for:
 
 ### Read path (query)
 
-1) Query reads from L0 (TanStack Query cache).
-2) If L0 is empty, hydrate from IndexedDB (fast local read).
-3) If still missing/stale, request server route.
-4) Server route checks Redis.
-5) On Redis miss, read from Turso and then populate Redis.
-6) Server returns response; client stores into IndexedDB and TanStack Query.
+1. Query reads from L0 (TanStack Query cache).
+2. If L0 is empty, hydrate from IndexedDB (fast local read).
+3. If still missing/stale, request server route.
+4. Server route checks Redis.
+5. On Redis miss, read from Turso and then populate Redis.
+6. Server returns response; client stores into IndexedDB and TanStack Query.
 
 ### Write path (mutation) with optimistic updates
 

@@ -13,7 +13,7 @@ export function ChatSkeleton() {
           <Skeleton className="h-8 w-8 rounded-md" />
         </div>
       </div>
-      
+
       {/* Messages skeleton with fading effect */}
       <div className="flex-1 overflow-hidden">
         <div className="flex flex-col gap-6 p-6 max-w-3xl mx-auto">
@@ -21,7 +21,7 @@ export function ChatSkeleton() {
           <div className="flex flex-col gap-1.5 items-end opacity-100">
             <Skeleton className="h-10 w-[70%] rounded-md" />
           </div>
-          
+
           {/* Assistant message skeleton - fading */}
           <div className="flex flex-col gap-1.5 items-start opacity-60">
             <Skeleton className="h-4 w-[90%] rounded-md" />
@@ -29,12 +29,12 @@ export function ChatSkeleton() {
             <Skeleton className="h-4 w-[75%] rounded-md" />
             <Skeleton className="h-4 w-[60%] rounded-md" />
           </div>
-          
+
           {/* Faded user message */}
           <div className="flex flex-col gap-1.5 items-end opacity-30">
             <Skeleton className="h-10 w-[55%] rounded-md" />
           </div>
-          
+
           {/* Faded assistant message */}
           <div className="flex flex-col gap-1.5 items-start opacity-15">
             <Skeleton className="h-4 w-[80%] rounded-md" />
@@ -43,7 +43,7 @@ export function ChatSkeleton() {
           </div>
         </div>
       </div>
-      
+
       {/* Actual ChatInput - no border, disabled state */}
       <ChatInput
         input=""

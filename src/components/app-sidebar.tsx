@@ -1,6 +1,6 @@
-import { 
-  Sidebar, 
-  SidebarContent, 
+import {
+  Sidebar,
+  SidebarContent,
   SidebarHeader,
   SidebarFooter,
   SidebarGroup,
@@ -10,21 +10,21 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarTrigger,
-} from "./ui/sidebar";
-import { Button } from "./ui/button";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { 
-  Add01Icon, 
+} from './ui/sidebar'
+import { Button } from './ui/button'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  Add01Icon,
   Settings01Icon,
   UserIcon,
   Search01Icon,
   Folder01Icon,
   MessageMultiple01Icon,
-} from "@hugeicons/core-free-icons";
-import { Input } from "./ui/input";
-import { Link, useLocation } from "@tanstack/react-router";
-import type { Conversation } from "@/lib/indexeddb";
-import { useAppStore } from "@/stores/app-store";
+} from '@hugeicons/core-free-icons'
+import { Input } from './ui/input'
+import { Link, useLocation } from '@tanstack/react-router'
+import type { Conversation } from '@/lib/indexeddb'
+import { useAppStore } from '@/stores/app-store'
 
 interface AppSidebarProps {
   conversations: Conversation[]
@@ -33,10 +33,10 @@ interface AppSidebarProps {
   onSelectConversation: (id: string) => void
 }
 
-export function AppSidebar({ 
-  conversations, 
-  activeConversationId, 
-  onNewChat, 
+export function AppSidebar({
+  conversations,
+  activeConversationId,
+  onNewChat,
   onSelectConversation,
 }: AppSidebarProps) {
   const location = useLocation()
@@ -46,7 +46,7 @@ export function AppSidebar({
   const isProjectsRoute = location.pathname === '/projects'
   return (
     <Sidebar className="border-r-0">
-      <SidebarHeader className="h-14 px-4 flex flex-row items-center justify-between border-b border-sidebar-border/50">
+      <SidebarHeader className="h-10 px-4 flex flex-row items-center justify-between border-b border-sidebar-border/50">
         <span className="text-sm font-semibold tracking-wider text-foreground">
           CHAT
         </span>
@@ -55,8 +55,8 @@ export function AppSidebar({
 
       <SidebarContent className="px-2">
         <SidebarGroup className="py-4">
-          <Button 
-            onClick={onNewChat} 
+          <Button
+            onClick={onNewChat}
             className="w-full justify-center gap-2 h-8 text-sm bg-primary hover:bg-primary/90 font-medium text-primary-foreground shadow-none"
           >
             <HugeiconsIcon icon={Add01Icon} size={18} />
@@ -70,10 +70,14 @@ export function AppSidebar({
                 className="w-full h-8 px-3 mb-0.5 text-sm font-medium"
                 render={(props) => (
                   <Link to="/chats" {...props}>
-                    <HugeiconsIcon 
-                      icon={MessageMultiple01Icon} 
-                      size={16} 
-                      className={isChatsRoute ? "text-foreground" : "text-muted-foreground"} 
+                    <HugeiconsIcon
+                      icon={MessageMultiple01Icon}
+                      size={16}
+                      className={
+                        isChatsRoute
+                          ? 'text-foreground'
+                          : 'text-muted-foreground'
+                      }
                     />
                     <span>Chats</span>
                   </Link>
@@ -86,10 +90,14 @@ export function AppSidebar({
                 className="w-full h-8 px-3 mb-0.5 text-sm font-medium"
                 render={(props) => (
                   <Link to="/projects" {...props}>
-                    <HugeiconsIcon 
-                      icon={Folder01Icon} 
-                      size={16} 
-                      className={isProjectsRoute ? "text-foreground" : "text-muted-foreground"} 
+                    <HugeiconsIcon
+                      icon={Folder01Icon}
+                      size={16}
+                      className={
+                        isProjectsRoute
+                          ? 'text-foreground'
+                          : 'text-muted-foreground'
+                      }
                     />
                     <span>Projects</span>
                   </Link>
@@ -104,13 +112,13 @@ export function AppSidebar({
             Recent
           </SidebarGroupLabel>
           <div className="relative mb-2">
-            <HugeiconsIcon 
-              icon={Search01Icon} 
-              size={14} 
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" 
+            <HugeiconsIcon
+              icon={Search01Icon}
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50"
             />
-            <Input 
-              placeholder="Search..." 
+            <Input
+              placeholder="Search..."
               className="h-8 pl-9 text-sm bg-transparent border-sidebar-border/50 focus:border-primary/50"
             />
           </div>
@@ -120,7 +128,11 @@ export function AppSidebar({
                 // Loading skeleton - matches conversation item dimensions
                 <div className="flex flex-col gap-0.5 p-0.5">
                   {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="flex items-center gap-2 h-8 px-3" style={{ opacity: 1 - (i - 1) * 0.2 }}>
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 h-8 px-3"
+                      style={{ opacity: 1 - (i - 1) * 0.2 }}
+                    >
                       <div className="w-3.5 h-3.5 bg-muted/50 rounded animate-pulse shrink-0" />
                       <div className="flex-1 h-3 bg-muted/50 rounded animate-pulse" />
                     </div>
@@ -155,17 +167,17 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-2 border-t border-sidebar-border">
+      <SidebarFooter className="p-1 border-t border-sidebar-border">
         <div className="flex items-center justify-between">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent border-0"
           >
             <HugeiconsIcon icon={UserIcon} size={18} />
           </Button>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent border-0"
           >

@@ -16,6 +16,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as ApiGenerateTitleRouteImport } from './routes/api/generate-title'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiProjectsIndexRouteImport } from './routes/api/projects/index'
+import { Route as ApiConversationsIndexRouteImport } from './routes/api/conversations/index'
+import { Route as ApiProjectsIdRouteImport } from './routes/api/projects/$id'
+import { Route as ApiConversationsIdRouteImport } from './routes/api/conversations/$id'
+import { Route as ApiProjectsIdAddConversationRouteImport } from './routes/api/projects/$id.add-conversation'
+import { Route as ApiConversationsIdMessagesRouteImport } from './routes/api/conversations/$id.messages'
 
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
@@ -52,6 +58,38 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProjectsIndexRoute = ApiProjectsIndexRouteImport.update({
+  id: '/api/projects/',
+  path: '/api/projects/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiConversationsIndexRoute = ApiConversationsIndexRouteImport.update({
+  id: '/api/conversations/',
+  path: '/api/conversations/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProjectsIdRoute = ApiProjectsIdRouteImport.update({
+  id: '/api/projects/$id',
+  path: '/api/projects/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiConversationsIdRoute = ApiConversationsIdRouteImport.update({
+  id: '/api/conversations/$id',
+  path: '/api/conversations/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProjectsIdAddConversationRoute =
+  ApiProjectsIdAddConversationRouteImport.update({
+    id: '/add-conversation',
+    path: '/add-conversation',
+    getParentRoute: () => ApiProjectsIdRoute,
+  } as any)
+const ApiConversationsIdMessagesRoute =
+  ApiConversationsIdMessagesRouteImport.update({
+    id: '/messages',
+    path: '/messages',
+    getParentRoute: () => ApiConversationsIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +99,12 @@ export interface FileRoutesByFullPath {
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
   '/chat/$id': typeof ChatIdRoute
+  '/api/conversations/$id': typeof ApiConversationsIdRouteWithChildren
+  '/api/projects/$id': typeof ApiProjectsIdRouteWithChildren
+  '/api/conversations': typeof ApiConversationsIndexRoute
+  '/api/projects': typeof ApiProjectsIndexRoute
+  '/api/conversations/$id/messages': typeof ApiConversationsIdMessagesRoute
+  '/api/projects/$id/add-conversation': typeof ApiProjectsIdAddConversationRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +114,12 @@ export interface FileRoutesByTo {
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
   '/chat/$id': typeof ChatIdRoute
+  '/api/conversations/$id': typeof ApiConversationsIdRouteWithChildren
+  '/api/projects/$id': typeof ApiProjectsIdRouteWithChildren
+  '/api/conversations': typeof ApiConversationsIndexRoute
+  '/api/projects': typeof ApiProjectsIndexRoute
+  '/api/conversations/$id/messages': typeof ApiConversationsIdMessagesRoute
+  '/api/projects/$id/add-conversation': typeof ApiProjectsIdAddConversationRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +130,12 @@ export interface FileRoutesById {
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
   '/chat/$id': typeof ChatIdRoute
+  '/api/conversations/$id': typeof ApiConversationsIdRouteWithChildren
+  '/api/projects/$id': typeof ApiProjectsIdRouteWithChildren
+  '/api/conversations/': typeof ApiConversationsIndexRoute
+  '/api/projects/': typeof ApiProjectsIndexRoute
+  '/api/conversations/$id/messages': typeof ApiConversationsIdMessagesRoute
+  '/api/projects/$id/add-conversation': typeof ApiProjectsIdAddConversationRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +147,12 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/generate-title'
     | '/chat/$id'
+    | '/api/conversations/$id'
+    | '/api/projects/$id'
+    | '/api/conversations'
+    | '/api/projects'
+    | '/api/conversations/$id/messages'
+    | '/api/projects/$id/add-conversation'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +162,12 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/generate-title'
     | '/chat/$id'
+    | '/api/conversations/$id'
+    | '/api/projects/$id'
+    | '/api/conversations'
+    | '/api/projects'
+    | '/api/conversations/$id/messages'
+    | '/api/projects/$id/add-conversation'
   id:
     | '__root__'
     | '/'
@@ -109,6 +177,12 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/generate-title'
     | '/chat/$id'
+    | '/api/conversations/$id'
+    | '/api/projects/$id'
+    | '/api/conversations/'
+    | '/api/projects/'
+    | '/api/conversations/$id/messages'
+    | '/api/projects/$id/add-conversation'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +193,10 @@ export interface RootRouteChildren {
   ApiChatRoute: typeof ApiChatRoute
   ApiGenerateTitleRoute: typeof ApiGenerateTitleRoute
   ChatIdRoute: typeof ChatIdRoute
+  ApiConversationsIdRoute: typeof ApiConversationsIdRouteWithChildren
+  ApiProjectsIdRoute: typeof ApiProjectsIdRouteWithChildren
+  ApiConversationsIndexRoute: typeof ApiConversationsIndexRoute
+  ApiProjectsIndexRoute: typeof ApiProjectsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -172,8 +250,73 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/projects/': {
+      id: '/api/projects/'
+      path: '/api/projects'
+      fullPath: '/api/projects'
+      preLoaderRoute: typeof ApiProjectsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/conversations/': {
+      id: '/api/conversations/'
+      path: '/api/conversations'
+      fullPath: '/api/conversations'
+      preLoaderRoute: typeof ApiConversationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/projects/$id': {
+      id: '/api/projects/$id'
+      path: '/api/projects/$id'
+      fullPath: '/api/projects/$id'
+      preLoaderRoute: typeof ApiProjectsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/conversations/$id': {
+      id: '/api/conversations/$id'
+      path: '/api/conversations/$id'
+      fullPath: '/api/conversations/$id'
+      preLoaderRoute: typeof ApiConversationsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/projects/$id/add-conversation': {
+      id: '/api/projects/$id/add-conversation'
+      path: '/add-conversation'
+      fullPath: '/api/projects/$id/add-conversation'
+      preLoaderRoute: typeof ApiProjectsIdAddConversationRouteImport
+      parentRoute: typeof ApiProjectsIdRoute
+    }
+    '/api/conversations/$id/messages': {
+      id: '/api/conversations/$id/messages'
+      path: '/messages'
+      fullPath: '/api/conversations/$id/messages'
+      preLoaderRoute: typeof ApiConversationsIdMessagesRouteImport
+      parentRoute: typeof ApiConversationsIdRoute
+    }
   }
 }
+
+interface ApiConversationsIdRouteChildren {
+  ApiConversationsIdMessagesRoute: typeof ApiConversationsIdMessagesRoute
+}
+
+const ApiConversationsIdRouteChildren: ApiConversationsIdRouteChildren = {
+  ApiConversationsIdMessagesRoute: ApiConversationsIdMessagesRoute,
+}
+
+const ApiConversationsIdRouteWithChildren =
+  ApiConversationsIdRoute._addFileChildren(ApiConversationsIdRouteChildren)
+
+interface ApiProjectsIdRouteChildren {
+  ApiProjectsIdAddConversationRoute: typeof ApiProjectsIdAddConversationRoute
+}
+
+const ApiProjectsIdRouteChildren: ApiProjectsIdRouteChildren = {
+  ApiProjectsIdAddConversationRoute: ApiProjectsIdAddConversationRoute,
+}
+
+const ApiProjectsIdRouteWithChildren = ApiProjectsIdRoute._addFileChildren(
+  ApiProjectsIdRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -183,6 +326,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiChatRoute: ApiChatRoute,
   ApiGenerateTitleRoute: ApiGenerateTitleRoute,
   ChatIdRoute: ChatIdRoute,
+  ApiConversationsIdRoute: ApiConversationsIdRouteWithChildren,
+  ApiProjectsIdRoute: ApiProjectsIdRouteWithChildren,
+  ApiConversationsIndexRoute: ApiConversationsIndexRoute,
+  ApiProjectsIndexRoute: ApiProjectsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

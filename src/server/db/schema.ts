@@ -7,47 +7,73 @@ export const users = sqliteTable('users', {
   email: text('email'),
   name: text('name'),
   avatarUrl: text('avatar_url'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
 })
 
 export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),
-  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   tokenHash: text('token_hash').notNull(),
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
 })
 
 export const conversations = sqliteTable('conversations', {
   id: text('id').primaryKey(),
   title: text('title').notNull().default('New conversation'),
   starred: integer('starred', { mode: 'boolean' }).notNull().default(false),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
   lastMessageAt: integer('last_message_at', { mode: 'timestamp' }),
 })
 
 export const messages = sqliteTable('messages', {
   id: text('id').primaryKey(),
-  conversationId: text('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }),
-  role: text('role', { enum: ['user', 'assistant', 'system', 'tool'] }).notNull(),
+  conversationId: text('conversation_id')
+    .notNull()
+    .references(() => conversations.id, { onDelete: 'cascade' }),
+  role: text('role', {
+    enum: ['user', 'assistant', 'system', 'tool'],
+  }).notNull(),
   content: text('content').notNull(),
   clientId: text('client_id'),
   metaJson: text('meta_json'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
 })
 
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
 })
 
 export const conversationProjects = sqliteTable('conversation_projects', {
-  conversationId: text('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }),
-  projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  conversationId: text('conversation_id')
+    .notNull()
+    .references(() => conversations.id, { onDelete: 'cascade' }),
+  projectId: text('project_id')
+    .notNull()
+    .references(() => projects.id, { onDelete: 'cascade' }),
 })
 
 export const webDocuments = sqliteTable('web_documents', {
@@ -95,16 +121,19 @@ export const projectsRelations = relations(projects, ({ many }) => ({
   conversations: many(conversationProjects),
 }))
 
-export const conversationProjectsRelations = relations(conversationProjects, ({ one }) => ({
-  conversation: one(conversations, {
-    fields: [conversationProjects.conversationId],
-    references: [conversations.id],
+export const conversationProjectsRelations = relations(
+  conversationProjects,
+  ({ one }) => ({
+    conversation: one(conversations, {
+      fields: [conversationProjects.conversationId],
+      references: [conversations.id],
+    }),
+    project: one(projects, {
+      fields: [conversationProjects.projectId],
+      references: [projects.id],
+    }),
   }),
-  project: one(projects, {
-    fields: [conversationProjects.projectId],
-    references: [projects.id],
-  }),
-}))
+)
 
 // Types
 export type User = typeof users.$inferSelect

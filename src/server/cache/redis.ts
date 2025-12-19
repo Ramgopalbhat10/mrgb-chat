@@ -7,8 +7,6 @@ if (!url || !token) {
   console.warn('Upstash Redis environment variables not set. Caching disabled.')
 }
 
-export const redis = url && token
-  ? new Redis({ url, token })
-  : null
+export const redis = url && token ? new Redis({ url, token }) : null
 
 export type RedisClient = typeof redis
