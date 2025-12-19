@@ -543,6 +543,7 @@ Reconciliation is easier if you:
 - Use existing shadcn/base UI primitives in `src/components/ui/*`.
 - If you need a new shadcn component (dropdown-menu, dialog, popover, scroll-area, avatar, command, etc):
   - **Add it via the shadcn MCP flow** (do not hand-roll).
+  - **Always use the bun command to install components** (e.g. `bunx --bun shadcn@latest add sidebar`)
 
 This will be required for:
 
