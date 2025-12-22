@@ -3,6 +3,10 @@ import { useAppStore } from '@/stores/app-store'
 import { useCallback, useState, useRef } from 'react'
 import { ChatEmptyState } from '@/features/chat/components/chat-empty-state'
 import { ChatInput } from '@/features/chat/components/chat-input'
+import { useSidebar } from '@/components/ui/sidebar'
+import { Button } from '@/components/ui/button'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { SidebarLeftIcon } from '@hugeicons/core-free-icons'
 
 export const Route = createFileRoute('/new')({ component: NewChatPage })
 
@@ -22,6 +26,10 @@ function NewChatPage() {
     (state) => state.setActiveConversationId,
   )
   const setPendingNewChat = useAppStore((state) => state.setPendingNewChat)
+
+  // Sidebar toggle for when sidebar is collapsed
+  const { state: sidebarState, toggleSidebar } = useSidebar()
+  const isSidebarClosed = sidebarState === 'collapsed'
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -61,7 +69,25 @@ function NewChatPage() {
   )
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col relative">
+      {/* Sidebar toggle when sidebar is collapsed */}
+      <div
+        className={`absolute top-3 left-4 z-10 transition-opacity duration-150 ${
+          isSidebarClosed
+            ? 'opacity-100 delay-200'
+            : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleSidebar}
+          className="h-8 w-8"
+        >
+          <HugeiconsIcon icon={SidebarLeftIcon} size={18} />
+        </Button>
+      </div>
+
       <div className="flex flex-1 flex-col items-center justify-center">
         <ChatEmptyState />
       </div>

@@ -16,15 +16,16 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
   Settings01Icon,
-  UserIcon,
   Search01Icon,
   Folder01Icon,
   MessageMultiple01Icon,
+  Logout01Icon,
 } from '@hugeicons/core-free-icons'
 import { Input } from './ui/input'
 import { Link, useLocation } from '@tanstack/react-router'
 import type { Conversation } from '@/lib/indexeddb'
 import { useAppStore } from '@/stores/app-store'
+import { useAuth } from '@/providers/auth-provider'
 
 interface AppSidebarProps {
   conversations: Conversation[]
@@ -42,6 +43,7 @@ export function AppSidebar({
   const location = useLocation()
   const titleLoadingIds = useAppStore((state) => state.titleLoadingIds)
   const isHydrated = useAppStore((state) => state.isHydrated)
+  const { user, signOut } = useAuth()
   const isChatsRoute = location.pathname === '/chats'
   const isProjectsRoute = location.pathname === '/projects'
   return (
@@ -167,22 +169,40 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-1 border-t border-sidebar-border">
-        <div className="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent border-0"
-          >
-            <HugeiconsIcon icon={UserIcon} size={18} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent border-0"
-          >
-            <HugeiconsIcon icon={Settings01Icon} size={18} />
-          </Button>
+      <SidebarFooter className="p-2 border-t border-sidebar-border">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {user?.image ? (
+              <img
+                src={user.image}
+                alt={user.name || 'User'}
+                className="h-6 w-6 rounded-full shrink-0"
+              />
+            ) : (
+              <div className="h-6 w-6 rounded-full bg-muted shrink-0" />
+            )}
+            <span className="text-xs text-muted-foreground truncate">
+              {user?.name || user?.email || 'User'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent border-0"
+            >
+              <HugeiconsIcon icon={Settings01Icon} size={16} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={signOut}
+              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent border-0"
+              title="Sign out"
+            >
+              <HugeiconsIcon icon={Logout01Icon} size={16} />
+            </Button>
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>

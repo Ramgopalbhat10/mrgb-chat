@@ -4,11 +4,13 @@ import {
   Outlet,
   createRootRoute,
   useNavigate,
+  useRouterState,
 } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { useAppStore } from '@/stores/app-store'
+import { AuthProvider, useAuth } from '@/providers/auth-provider'
 
 import appCss from '../styles.css?url'
 
@@ -53,7 +55,18 @@ export const Route = createRootRoute({
 })
 
 function RootComponent() {
+  return (
+    <AuthProvider>
+      <AuthenticatedLayout />
+    </AuthProvider>
+  )
+}
+
+function AuthenticatedLayout() {
   const navigate = useNavigate()
+  const routerState = useRouterState()
+  const { isAuthenticated, isLoading } = useAuth()
+
   const conversations = useAppStore((state) => state.conversations)
   const activeConversationId = useAppStore(
     (state) => state.activeConversationId,
@@ -64,10 +77,27 @@ function RootComponent() {
     (state) => state.setActiveConversationId,
   )
 
+  // Check if current route is the login page
+  const isLoginPage = routerState.location.pathname === '/login'
+
   // Hydrate from IndexedDB on mount
   useEffect(() => {
     hydrate()
   }, [hydrate])
+
+  // Redirect to login if not authenticated (except on login page)
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated && !isLoginPage) {
+      navigate({ to: '/login' })
+    }
+  }, [isLoading, isAuthenticated, isLoginPage, navigate])
+
+  // Redirect to home if authenticated and on login page
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && isLoginPage) {
+      navigate({ to: '/' })
+    }
+  }, [isLoading, isAuthenticated, isLoginPage, navigate])
 
   const onNewChat = () => {
     handleNewChat()
@@ -75,10 +105,25 @@ function RootComponent() {
   }
 
   const onSelectConversation = (id: string) => {
-    setActiveConversationId(id) // Set immediately for sidebar highlighting
+    setActiveConversationId(id)
     navigate({ to: '/chat/$id', params: { id } })
   }
 
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
+
+  // Login page - no sidebar
+  if (isLoginPage) {
+    return <Outlet />
+  }
+
+  // Protected routes - with sidebar
   return (
     <SidebarProvider
       style={

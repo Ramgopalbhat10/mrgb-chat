@@ -1,12 +1,13 @@
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 import { relations } from 'drizzle-orm'
 
-export const users = sqliteTable('users', {
+// Better-auth core tables
+export const users = sqliteTable('user', {
   id: text('id').primaryKey(),
-  githubUserId: text('github_user_id').unique(),
-  email: text('email'),
-  name: text('name'),
-  avatarUrl: text('avatar_url'),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
+  image: text('image'),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -15,15 +16,53 @@ export const users = sqliteTable('users', {
     .$defaultFn(() => new Date()),
 })
 
-export const sessions = sqliteTable('sessions', {
+export const sessions = sqliteTable('session', {
   id: text('id').primaryKey(),
   userId: text('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
-  tokenHash: text('token_hash').notNull(),
+  token: text('token').notNull().unique(),
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+})
+
+export const accounts = sqliteTable('account', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  accountId: text('account_id').notNull(),
+  providerId: text('provider_id').notNull(),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  accessTokenExpiresAt: integer('access_token_expires_at', { mode: 'timestamp' }),
+  refreshTokenExpiresAt: integer('refresh_token_expires_at', { mode: 'timestamp' }),
+  scope: text('scope'),
+  idToken: text('id_token'),
+  password: text('password'),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+})
+
+export const verifications = sqliteTable('verification', {
+  id: text('id').primaryKey(),
+  identifier: text('identifier').notNull(),
+  value: text('value').notNull(),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
     .$defaultFn(() => new Date()),
 })
 
@@ -96,6 +135,14 @@ export const webDocuments = sqliteTable('web_documents', {
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
+  accounts: many(accounts),
+}))
+
+export const accountsRelations = relations(accounts, ({ one }) => ({
+  user: one(users, {
+    fields: [accounts.userId],
+    references: [users.id],
+  }),
 }))
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
