@@ -55,10 +55,42 @@ function ChatPage() {
       }
     }
 
-    // For existing chats, load messages from IndexedDB
+    // For existing chats, load messages from IndexedDB first, then sync from server if empty
     const loadMessages = async () => {
       try {
-        const dbMessages = await db.getMessagesByConversation(id)
+        // Step 1: Try IndexedDB first (instant)
+        let dbMessages = await db.getMessagesByConversation(id)
+        
+        // Step 2: If IndexedDB is empty, fetch from server and sync
+        if (dbMessages.length === 0) {
+          try {
+            const response = await fetch(`/api/conversations/${id}/messages`)
+            if (response.ok) {
+              const data = await response.json()
+              const serverMessages = Array.isArray(data) ? data : data.messages || []
+              
+              // Sync server messages to IndexedDB
+              for (const msg of serverMessages) {
+                const message = {
+                  id: msg.id,
+                  conversationId: id,
+                  role: msg.role as 'user' | 'assistant' | 'system' | 'tool',
+                  content: msg.content,
+                  clientId: msg.clientId || null,
+                  metaJson: msg.metaJson || null,
+                  createdAt: new Date(msg.createdAt),
+                }
+                await db.createMessage(message)
+              }
+              
+              // Reload from IndexedDB after sync
+              dbMessages = await db.getMessagesByConversation(id)
+            }
+          } catch (serverError) {
+            console.warn('Failed to fetch messages from server:', serverError)
+          }
+        }
+        
         const uiMessages: UIMessage[] = dbMessages.map((msg) => ({
           id: msg.id,
           role: msg.role as 'user' | 'assistant',
