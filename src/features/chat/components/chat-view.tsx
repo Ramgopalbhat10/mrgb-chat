@@ -255,6 +255,7 @@ export function ChatView({
           isLoading={titleIsLoading}
           conversation={conversation}
           onDeleted={handleConversationDeleted}
+          showShare={true}
         />
       ) : (
         // Sidebar toggle - absolutely positioned to avoid layout shift

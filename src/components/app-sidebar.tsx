@@ -29,6 +29,8 @@ import type { Conversation } from '@/lib/indexeddb'
 import { useAppStore } from '@/stores/app-store'
 import { useAuth } from '@/providers/auth-provider'
 import { ConversationActionsDropdown } from '@/features/chat/components/conversation-actions-dropdown'
+import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
+import { useSidebar } from './ui/sidebar'
 
 interface AppSidebarProps {
   conversations: Conversation[]
@@ -48,6 +50,7 @@ export function AppSidebar({
   const titleLoadingIds = useAppStore((state) => state.titleLoadingIds)
   const isHydrated = useAppStore((state) => state.isHydrated)
   const { user, signOut } = useAuth()
+  const { isMobile } = useSidebar()
 
   const handleConversationDeleted = (conversationId: string) => {
     // If the deleted conversation was active, navigate to new chat
@@ -141,7 +144,7 @@ export function AppSidebar({
               className="h-8 pl-9 text-sm bg-transparent border-sidebar-border/50 focus:border-primary/50"
             />
           </div>
-          <SidebarGroupContent className="flex-1 overflow-y-auto">
+          <SidebarGroupContent className="flex-1 overflow-y-auto overflow-x-hidden">
             <SidebarMenu>
               {!isHydrated ? (
                 // Loading skeleton - matches conversation item dimensions
@@ -171,29 +174,39 @@ export function AppSidebar({
                       key={conversation.id}
                       className="group/item p-0.5 relative"
                     >
-                      <SidebarMenuButton
-                        isActive={isActive}
-                        onClick={() => onSelectConversation(conversation.id)}
-                        className="w-full h-8 px-3 pr-8 text-sm font-normal text-sidebar-foreground hover:text-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-foreground focus-visible:ring-primary/50 focus-visible:ring-offset-0"
-                      >
-                        {conversation.starred && (
-                          <HugeiconsIcon
-                            icon={StarIcon}
-                            size={12}
-                            strokeWidth={2}
-                            className="text-yellow-500 shrink-0"
-                          />
-                        )}
-                        {titleLoading ? (
-                          <span className="flex-1 h-3 bg-muted/50 rounded animate-pulse" />
-                        ) : (
-                          <span className="truncate">{conversation.title}</span>
-                        )}
-                      </SidebarMenuButton>
-                      {/* Three dots menu - visible on hover or when active */}
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={(triggerProps) => (
+                            <SidebarMenuButton
+                              {...triggerProps}
+                              isActive={isActive}
+                              onClick={() => onSelectConversation(conversation.id)}
+                              className="w-full h-8 px-3 pr-8 text-sm font-normal text-sidebar-foreground hover:text-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-foreground focus-visible:ring-primary/50 focus-visible:ring-offset-0"
+                            >
+                              {conversation.starred && (
+                                <HugeiconsIcon
+                                  icon={StarIcon}
+                                  size={12}
+                                  strokeWidth={2}
+                                  className="text-yellow-500 shrink-0"
+                                />
+                              )}
+                              {titleLoading ? (
+                                <span className="flex-1 h-3 bg-muted/50 rounded animate-pulse" />
+                              ) : (
+                                <span className="truncate">{conversation.title}</span>
+                              )}
+                            </SidebarMenuButton>
+                          )}
+                        />
+                        <TooltipContent side="right" className="bg-secondary text-secondary-foreground max-w-xs">
+                          {conversation.title}
+                        </TooltipContent>
+                      </Tooltip>
+                      {/* Three dots menu - always visible on mobile, hover on desktop */}
                       <div
-                        className={`absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 ${
-                          isActive ? 'opacity-100' : ''
+                        className={`absolute right-1 top-1/2 -translate-y-1/2 ${
+                          isMobile ? 'opacity-100' : `opacity-0 group-hover/item:opacity-100 ${isActive ? 'opacity-100' : ''}`
                         } transition-opacity`}
                         onClick={(e) => e.stopPropagation()}
                       >

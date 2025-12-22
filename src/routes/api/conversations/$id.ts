@@ -48,6 +48,7 @@ export const Route = createFileRoute('/api/conversations/$id')({
 
           if (body.title !== undefined) updates.title = body.title
           if (body.starred !== undefined) updates.starred = body.starred
+          if (body.isPublic !== undefined) updates.isPublic = body.isPublic
           if (body.lastMessageAt !== undefined)
             updates.lastMessageAt = body.lastMessageAt
 

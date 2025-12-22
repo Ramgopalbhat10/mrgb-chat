@@ -80,20 +80,22 @@ function AuthenticatedLayout() {
     (state) => state.setActiveConversationId,
   )
 
-  // Check if current route is the login page
+  // Check if current route is public (no auth/sidebar needed)
   const isLoginPage = routerState.location.pathname === '/login'
+  const isSharePage = routerState.location.pathname.startsWith('/share/')
+  const isPublicPage = isLoginPage || isSharePage
 
   // Hydrate from IndexedDB on mount
   useEffect(() => {
     hydrate()
   }, [hydrate])
 
-  // Redirect to login if not authenticated (except on login page)
+  // Redirect to login if not authenticated (except on public pages)
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && !isLoginPage) {
+    if (!isLoading && !isAuthenticated && !isPublicPage) {
       navigate({ to: '/login' })
     }
-  }, [isLoading, isAuthenticated, isLoginPage, navigate])
+  }, [isLoading, isAuthenticated, isPublicPage, navigate])
 
   // Redirect to home if authenticated and on login page
   useEffect(() => {
@@ -121,8 +123,8 @@ function AuthenticatedLayout() {
     )
   }
 
-  // Login page - no sidebar
-  if (isLoginPage) {
+  // Public pages (login, share) - no sidebar
+  if (isPublicPage) {
     return <Outlet />
   }
 

@@ -6,6 +6,7 @@ export interface Conversation {
   title: string
   starred: boolean
   archived: boolean
+  isPublic: boolean
   createdAt: Date
   updatedAt: Date
   lastMessageAt: Date | null
