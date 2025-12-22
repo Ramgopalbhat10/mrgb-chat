@@ -14,15 +14,19 @@ import { Route as NewRouteImport } from './routes/new'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatsRouteImport } from './routes/chats'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProjectIdRouteImport } from './routes/project.$id'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as ApiGenerateTitleRouteImport } from './routes/api/generate-title'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiProjectsIndexRouteImport } from './routes/api/projects/index'
 import { Route as ApiConversationsIndexRouteImport } from './routes/api/conversations/index'
+import { Route as ApiProjectsMetadataRouteImport } from './routes/api/projects/metadata'
 import { Route as ApiProjectsIdRouteImport } from './routes/api/projects/$id'
 import { Route as ApiConversationsIdRouteImport } from './routes/api/conversations/$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiProjectsIdConversationsRouteImport } from './routes/api/projects/$id.conversations'
 import { Route as ApiProjectsIdAddConversationRouteImport } from './routes/api/projects/$id.add-conversation'
+import { Route as ApiConversationsIdProjectsRouteImport } from './routes/api/conversations/$id.projects'
 import { Route as ApiConversationsIdMessagesRouteImport } from './routes/api/conversations/$id.messages'
 
 const ProjectsRoute = ProjectsRouteImport.update({
@@ -50,6 +54,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectIdRoute = ProjectIdRouteImport.update({
+  id: '/project/$id',
+  path: '/project/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatIdRoute = ChatIdRouteImport.update({
   id: '/chat/$id',
   path: '/chat/$id',
@@ -75,6 +84,11 @@ const ApiConversationsIndexRoute = ApiConversationsIndexRouteImport.update({
   path: '/api/conversations/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProjectsMetadataRoute = ApiProjectsMetadataRouteImport.update({
+  id: '/api/projects/metadata',
+  path: '/api/projects/metadata',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiProjectsIdRoute = ApiProjectsIdRouteImport.update({
   id: '/api/projects/$id',
   path: '/api/projects/$id',
@@ -90,11 +104,23 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiProjectsIdConversationsRoute =
+  ApiProjectsIdConversationsRouteImport.update({
+    id: '/conversations',
+    path: '/conversations',
+    getParentRoute: () => ApiProjectsIdRoute,
+  } as any)
 const ApiProjectsIdAddConversationRoute =
   ApiProjectsIdAddConversationRouteImport.update({
     id: '/add-conversation',
     path: '/add-conversation',
     getParentRoute: () => ApiProjectsIdRoute,
+  } as any)
+const ApiConversationsIdProjectsRoute =
+  ApiConversationsIdProjectsRouteImport.update({
+    id: '/projects',
+    path: '/projects',
+    getParentRoute: () => ApiConversationsIdRoute,
   } as any)
 const ApiConversationsIdMessagesRoute =
   ApiConversationsIdMessagesRouteImport.update({
@@ -112,13 +138,17 @@ export interface FileRoutesByFullPath {
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
   '/chat/$id': typeof ChatIdRoute
+  '/project/$id': typeof ProjectIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conversations/$id': typeof ApiConversationsIdRouteWithChildren
   '/api/projects/$id': typeof ApiProjectsIdRouteWithChildren
+  '/api/projects/metadata': typeof ApiProjectsMetadataRoute
   '/api/conversations': typeof ApiConversationsIndexRoute
   '/api/projects': typeof ApiProjectsIndexRoute
   '/api/conversations/$id/messages': typeof ApiConversationsIdMessagesRoute
+  '/api/conversations/$id/projects': typeof ApiConversationsIdProjectsRoute
   '/api/projects/$id/add-conversation': typeof ApiProjectsIdAddConversationRoute
+  '/api/projects/$id/conversations': typeof ApiProjectsIdConversationsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -129,13 +159,17 @@ export interface FileRoutesByTo {
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
   '/chat/$id': typeof ChatIdRoute
+  '/project/$id': typeof ProjectIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conversations/$id': typeof ApiConversationsIdRouteWithChildren
   '/api/projects/$id': typeof ApiProjectsIdRouteWithChildren
+  '/api/projects/metadata': typeof ApiProjectsMetadataRoute
   '/api/conversations': typeof ApiConversationsIndexRoute
   '/api/projects': typeof ApiProjectsIndexRoute
   '/api/conversations/$id/messages': typeof ApiConversationsIdMessagesRoute
+  '/api/conversations/$id/projects': typeof ApiConversationsIdProjectsRoute
   '/api/projects/$id/add-conversation': typeof ApiProjectsIdAddConversationRoute
+  '/api/projects/$id/conversations': typeof ApiProjectsIdConversationsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -147,13 +181,17 @@ export interface FileRoutesById {
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
   '/chat/$id': typeof ChatIdRoute
+  '/project/$id': typeof ProjectIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conversations/$id': typeof ApiConversationsIdRouteWithChildren
   '/api/projects/$id': typeof ApiProjectsIdRouteWithChildren
+  '/api/projects/metadata': typeof ApiProjectsMetadataRoute
   '/api/conversations/': typeof ApiConversationsIndexRoute
   '/api/projects/': typeof ApiProjectsIndexRoute
   '/api/conversations/$id/messages': typeof ApiConversationsIdMessagesRoute
+  '/api/conversations/$id/projects': typeof ApiConversationsIdProjectsRoute
   '/api/projects/$id/add-conversation': typeof ApiProjectsIdAddConversationRoute
+  '/api/projects/$id/conversations': typeof ApiProjectsIdConversationsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -166,13 +204,17 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/generate-title'
     | '/chat/$id'
+    | '/project/$id'
     | '/api/auth/$'
     | '/api/conversations/$id'
     | '/api/projects/$id'
+    | '/api/projects/metadata'
     | '/api/conversations'
     | '/api/projects'
     | '/api/conversations/$id/messages'
+    | '/api/conversations/$id/projects'
     | '/api/projects/$id/add-conversation'
+    | '/api/projects/$id/conversations'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -183,13 +225,17 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/generate-title'
     | '/chat/$id'
+    | '/project/$id'
     | '/api/auth/$'
     | '/api/conversations/$id'
     | '/api/projects/$id'
+    | '/api/projects/metadata'
     | '/api/conversations'
     | '/api/projects'
     | '/api/conversations/$id/messages'
+    | '/api/conversations/$id/projects'
     | '/api/projects/$id/add-conversation'
+    | '/api/projects/$id/conversations'
   id:
     | '__root__'
     | '/'
@@ -200,13 +246,17 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/generate-title'
     | '/chat/$id'
+    | '/project/$id'
     | '/api/auth/$'
     | '/api/conversations/$id'
     | '/api/projects/$id'
+    | '/api/projects/metadata'
     | '/api/conversations/'
     | '/api/projects/'
     | '/api/conversations/$id/messages'
+    | '/api/conversations/$id/projects'
     | '/api/projects/$id/add-conversation'
+    | '/api/projects/$id/conversations'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -218,9 +268,11 @@ export interface RootRouteChildren {
   ApiChatRoute: typeof ApiChatRoute
   ApiGenerateTitleRoute: typeof ApiGenerateTitleRoute
   ChatIdRoute: typeof ChatIdRoute
+  ProjectIdRoute: typeof ProjectIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiConversationsIdRoute: typeof ApiConversationsIdRouteWithChildren
   ApiProjectsIdRoute: typeof ApiProjectsIdRouteWithChildren
+  ApiProjectsMetadataRoute: typeof ApiProjectsMetadataRoute
   ApiConversationsIndexRoute: typeof ApiConversationsIndexRoute
   ApiProjectsIndexRoute: typeof ApiProjectsIndexRoute
 }
@@ -262,6 +314,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/project/$id': {
+      id: '/project/$id'
+      path: '/project/$id'
+      fullPath: '/project/$id'
+      preLoaderRoute: typeof ProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat/$id': {
       id: '/chat/$id'
       path: '/chat/$id'
@@ -297,6 +356,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiConversationsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/projects/metadata': {
+      id: '/api/projects/metadata'
+      path: '/api/projects/metadata'
+      fullPath: '/api/projects/metadata'
+      preLoaderRoute: typeof ApiProjectsMetadataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/projects/$id': {
       id: '/api/projects/$id'
       path: '/api/projects/$id'
@@ -318,12 +384,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/projects/$id/conversations': {
+      id: '/api/projects/$id/conversations'
+      path: '/conversations'
+      fullPath: '/api/projects/$id/conversations'
+      preLoaderRoute: typeof ApiProjectsIdConversationsRouteImport
+      parentRoute: typeof ApiProjectsIdRoute
+    }
     '/api/projects/$id/add-conversation': {
       id: '/api/projects/$id/add-conversation'
       path: '/add-conversation'
       fullPath: '/api/projects/$id/add-conversation'
       preLoaderRoute: typeof ApiProjectsIdAddConversationRouteImport
       parentRoute: typeof ApiProjectsIdRoute
+    }
+    '/api/conversations/$id/projects': {
+      id: '/api/conversations/$id/projects'
+      path: '/projects'
+      fullPath: '/api/conversations/$id/projects'
+      preLoaderRoute: typeof ApiConversationsIdProjectsRouteImport
+      parentRoute: typeof ApiConversationsIdRoute
     }
     '/api/conversations/$id/messages': {
       id: '/api/conversations/$id/messages'
@@ -337,10 +417,12 @@ declare module '@tanstack/react-router' {
 
 interface ApiConversationsIdRouteChildren {
   ApiConversationsIdMessagesRoute: typeof ApiConversationsIdMessagesRoute
+  ApiConversationsIdProjectsRoute: typeof ApiConversationsIdProjectsRoute
 }
 
 const ApiConversationsIdRouteChildren: ApiConversationsIdRouteChildren = {
   ApiConversationsIdMessagesRoute: ApiConversationsIdMessagesRoute,
+  ApiConversationsIdProjectsRoute: ApiConversationsIdProjectsRoute,
 }
 
 const ApiConversationsIdRouteWithChildren =
@@ -348,10 +430,12 @@ const ApiConversationsIdRouteWithChildren =
 
 interface ApiProjectsIdRouteChildren {
   ApiProjectsIdAddConversationRoute: typeof ApiProjectsIdAddConversationRoute
+  ApiProjectsIdConversationsRoute: typeof ApiProjectsIdConversationsRoute
 }
 
 const ApiProjectsIdRouteChildren: ApiProjectsIdRouteChildren = {
   ApiProjectsIdAddConversationRoute: ApiProjectsIdAddConversationRoute,
+  ApiProjectsIdConversationsRoute: ApiProjectsIdConversationsRoute,
 }
 
 const ApiProjectsIdRouteWithChildren = ApiProjectsIdRoute._addFileChildren(
@@ -367,9 +451,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiChatRoute: ApiChatRoute,
   ApiGenerateTitleRoute: ApiGenerateTitleRoute,
   ChatIdRoute: ChatIdRoute,
+  ProjectIdRoute: ProjectIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiConversationsIdRoute: ApiConversationsIdRouteWithChildren,
   ApiProjectsIdRoute: ApiProjectsIdRouteWithChildren,
+  ApiProjectsMetadataRoute: ApiProjectsMetadataRoute,
   ApiConversationsIndexRoute: ApiConversationsIndexRoute,
   ApiProjectsIndexRoute: ApiProjectsIndexRoute,
 }

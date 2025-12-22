@@ -1,19 +1,23 @@
 import { Button } from '@/components/ui/button'
 import { useSidebar } from '@/components/ui/sidebar'
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  MoreHorizontalIcon,
-  Share01Icon,
-  Delete01Icon,
-  SidebarLeftIcon,
-} from '@hugeicons/core-free-icons'
+import { Share01Icon, SidebarLeftIcon } from '@hugeicons/core-free-icons'
+import { ConversationActionsDropdown } from './conversation-actions-dropdown'
+import type { Conversation } from '@/lib/indexeddb'
 
 interface ChatHeaderProps {
   title?: string
   isLoading?: boolean
+  conversation?: Conversation
+  onDeleted?: () => void
 }
 
-export function ChatHeader({ title, isLoading }: ChatHeaderProps) {
+export function ChatHeader({
+  title,
+  isLoading,
+  conversation,
+  onDeleted,
+}: ChatHeaderProps) {
   const { state, toggleSidebar, isMobile } = useSidebar()
   // Show toggle on mobile (always, since sidebar is a sheet) or desktop when collapsed
   const showToggle = isMobile || state === 'collapsed'
@@ -43,27 +47,24 @@ export function ChatHeader({ title, isLoading }: ChatHeaderProps) {
         )}
       </div>
       <div className="flex items-center gap-1">
+        {/* Share button - with label on desktop, icon only on mobile */}
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-foreground border-0"
+          size="sm"
+          className="h-8 text-muted-foreground hover:text-foreground border-0 gap-1.5"
         >
           <HugeiconsIcon icon={Share01Icon} size={16} />
+          <span className="hidden sm:inline text-sm">Share</span>
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-foreground border-0"
-        >
-          <HugeiconsIcon icon={Delete01Icon} size={16} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-foreground border-0"
-        >
-          <HugeiconsIcon icon={MoreHorizontalIcon} size={16} />
-        </Button>
+        {/* Actions dropdown */}
+        {conversation && (
+          <ConversationActionsDropdown
+            conversation={conversation}
+            side="bottom"
+            align="end"
+            onDeleted={onDeleted}
+          />
+        )}
       </div>
     </header>
   )

@@ -1,6 +1,7 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { ChatMessagesVirtual } from './chat-messages-virtual'
 import { ChatInput } from './chat-input'
 import { ChatHeader } from './chat-header'
@@ -28,6 +29,7 @@ export function ChatView({
   const scrollRef = useRef<HTMLDivElement>(null)
   const persistedMessageIds = useRef<Set<string>>(new Set())
   const hasSentPendingMessage = useRef(false)
+  const navigate = useNavigate()
 
   const conversations = useAppStore((state) => state.conversations)
   const titleLoadingIds = useAppStore((state) => state.titleLoadingIds)
@@ -35,6 +37,10 @@ export function ChatView({
   const conversation = conversations.find((c) => c.id === conversationId)
   const title = conversation?.title
   const titleIsLoading = titleLoadingIds.has(conversationId)
+
+  const handleConversationDeleted = () => {
+    navigate({ to: '/new' })
+  }
 
   // Memoize transport to prevent re-creation on each render
   const transport = useMemo(
@@ -244,7 +250,12 @@ export function ChatView({
   return (
     <div className="flex flex-col h-full bg-background relative">
       {showHeader ? (
-        <ChatHeader title={title} isLoading={titleIsLoading} />
+        <ChatHeader
+          title={title}
+          isLoading={titleIsLoading}
+          conversation={conversation}
+          onDeleted={handleConversationDeleted}
+        />
       ) : (
         // Sidebar toggle - absolutely positioned to avoid layout shift
         // Uses CSS transition delay to wait for sidebar close animation
