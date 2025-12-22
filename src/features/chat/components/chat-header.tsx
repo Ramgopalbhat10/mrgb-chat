@@ -35,7 +35,7 @@ export function ChatHeader({
             onClick={toggleSidebar}
             className="h-8 w-8 text-muted-foreground hover:text-foreground border-0 shrink-0"
           >
-            <HugeiconsIcon icon={SidebarLeftIcon} size={16} />
+            <HugeiconsIcon icon={SidebarLeftIcon} size={16} strokeWidth={2} />
           </Button>
         </div>
         {isLoading ? (
@@ -53,7 +53,7 @@ export function ChatHeader({
           size="sm"
           className="h-8 text-muted-foreground hover:text-foreground border-0 gap-1.5"
         >
-          <HugeiconsIcon icon={Share01Icon} size={16} />
+          <HugeiconsIcon icon={Share01Icon} size={16} strokeWidth={2} />
           <span className="hidden sm:inline text-sm">Share</span>
         </Button>
         {/* Actions dropdown */}

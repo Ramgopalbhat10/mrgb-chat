@@ -4,7 +4,6 @@ import { ChatHeader } from '@/features/chat/components'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Message01Icon,
-  Calendar03Icon,
   StarIcon,
   Folder01Icon,
 } from '@hugeicons/core-free-icons'
@@ -68,6 +67,7 @@ function ChatsPage() {
               <HugeiconsIcon
                 icon={Message01Icon}
                 size={24}
+                strokeWidth={2}
                 className="text-muted-foreground"
               />
             </div>
@@ -80,40 +80,44 @@ function ChatsPage() {
             </p>
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto space-y-2">
+          <div className="max-w-3xl mx-auto space-y-1">
             {visibleConversations.map((conversation) => (
               <div
                 key={conversation.id}
-                className="group relative w-full text-left p-4 rounded-lg border border-border bg-card hover:bg-accent/50 cursor-pointer transition-colors"
+                className="group relative w-full text-left px-4 py-3 rounded-md hover:bg-accent/40 cursor-pointer transition-colors"
                 onClick={() => handleSelectConversation(conversation.id)}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0 flex items-center gap-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0 flex items-start gap-3">
                     <HugeiconsIcon
                       icon={Message01Icon}
                       size={16}
-                      className="text-muted-foreground shrink-0"
+                      strokeWidth={2}
+                      className="text-muted-foreground/60 shrink-0 mt-0.5"
                     />
-                    {conversation.starred && (
-                      <HugeiconsIcon
-                        icon={StarIcon}
-                        size={12}
-                        className="text-yellow-500 shrink-0"
-                      />
-                    )}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-foreground truncate">
-                        {conversation.title}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm text-foreground truncate">
+                          {conversation.title}
+                        </h3>
+                        {conversation.starred && (
+                          <HugeiconsIcon
+                            icon={StarIcon}
+                            size={12}
+                            strokeWidth={2}
+                            className="text-yellow-500 shrink-0"
+                          />
+                        )}
+                      </div>
                       {/* Project badges */}
                       {getProjectsForConversation(conversation.id).length > 0 && (
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           {getProjectsForConversation(conversation.id).map((project) => (
                             <span
                               key={project.id}
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-accent/80 text-accent-foreground group-hover:bg-background"
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-muted/60 text-muted-foreground"
                             >
-                              <HugeiconsIcon icon={Folder01Icon} size={10} />
+                              <HugeiconsIcon icon={Folder01Icon} size={10} strokeWidth={2} />
                               {project.name}
                             </span>
                           ))}
@@ -121,13 +125,10 @@ function ChatsPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <HugeiconsIcon icon={Calendar03Icon} size={12} />
-                      <span>
-                        {new Date(conversation.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs text-muted-foreground/70">
+                      {new Date(conversation.createdAt).toLocaleDateString()}
+                    </span>
                     {/* Three dots menu - visible on hover */}
                     <div
                       className="opacity-0 group-hover:opacity-100 transition-opacity"

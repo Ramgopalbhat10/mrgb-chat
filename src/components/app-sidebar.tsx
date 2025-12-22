@@ -75,7 +75,7 @@ export function AppSidebar({
             onClick={onNewChat}
             className="w-full justify-center gap-2 h-8 text-sm bg-primary hover:bg-primary/90 font-medium text-primary-foreground shadow-none"
           >
-            <HugeiconsIcon icon={Add01Icon} size={18} />
+            <HugeiconsIcon icon={Add01Icon} size={18} strokeWidth={2} />
             New chat
           </Button>
           <div className="h-4" />
@@ -89,6 +89,7 @@ export function AppSidebar({
                     <HugeiconsIcon
                       icon={MessageMultiple01Icon}
                       size={16}
+                      strokeWidth={2}
                       className={
                         isChatsRoute
                           ? 'text-foreground'
@@ -109,6 +110,7 @@ export function AppSidebar({
                     <HugeiconsIcon
                       icon={Folder01Icon}
                       size={16}
+                      strokeWidth={2}
                       className={
                         isProjectsRoute
                           ? 'text-foreground'
@@ -131,6 +133,7 @@ export function AppSidebar({
             <HugeiconsIcon
               icon={Search01Icon}
               size={14}
+              strokeWidth={2}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50"
             />
             <Input
@@ -177,6 +180,7 @@ export function AppSidebar({
                           <HugeiconsIcon
                             icon={StarIcon}
                             size={12}
+                            strokeWidth={2}
                             className="text-yellow-500 shrink-0"
                           />
                         )}
@@ -209,38 +213,38 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-2 border-t border-sidebar-border">
+      <SidebarFooter className="p-3 border-t border-sidebar-border/50">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
             {user?.image ? (
               <img
                 src={user.image}
                 alt={user.name || 'User'}
-                className="h-6 w-6 rounded-full shrink-0"
+                className="h-7 w-7 rounded-full shrink-0"
               />
             ) : (
-              <div className="h-6 w-6 rounded-full bg-muted shrink-0" />
+              <div className="h-7 w-7 rounded-full bg-muted shrink-0" />
             )}
-            <span className="text-xs text-muted-foreground truncate">
+            <span className="text-xs text-sidebar-foreground truncate">
               {user?.name || user?.email || 'User'}
             </span>
           </div>
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-0.5 shrink-0">
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent border-0"
+              className="h-7 w-7 text-muted-foreground/70 hover:text-foreground hover:bg-sidebar-accent border-0"
             >
-              <HugeiconsIcon icon={Settings01Icon} size={16} />
+              <HugeiconsIcon icon={Settings01Icon} size={16} strokeWidth={2} />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={signOut}
-              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent border-0"
+              className="h-7 w-7 text-muted-foreground/70 hover:text-foreground hover:bg-sidebar-accent border-0"
               title="Sign out"
             >
-              <HugeiconsIcon icon={Logout01Icon} size={16} />
+              <HugeiconsIcon icon={Logout01Icon} size={16} strokeWidth={2} />
             </Button>
           </div>
         </div>

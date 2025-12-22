@@ -35,7 +35,7 @@ export function ChatInput({
           variant="default"
           className="h-8 w-8 text-foreground bg-primary disabled:opacity-30"
         >
-          <HugeiconsIcon icon={SentIcon} size={18} />
+          <HugeiconsIcon icon={SentIcon} size={18} strokeWidth={2} />
         </Button>
       </form>
     </div>

@@ -27,6 +27,7 @@ export function ChatEmptyState() {
             <HugeiconsIcon
               icon={Attachment01Icon}
               size={14}
+              strokeWidth={2}
               className="text-muted-foreground"
             />
             Attach file
@@ -39,6 +40,7 @@ export function ChatEmptyState() {
             <HugeiconsIcon
               icon={AiBrain01Icon}
               size={14}
+              strokeWidth={2}
               className="text-muted-foreground"
             />
             Select model
@@ -51,6 +53,7 @@ export function ChatEmptyState() {
             <HugeiconsIcon
               icon={Search01Icon}
               size={14}
+              strokeWidth={2}
               className="text-muted-foreground"
             />
             Web search

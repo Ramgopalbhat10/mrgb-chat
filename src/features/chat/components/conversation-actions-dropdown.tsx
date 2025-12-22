@@ -231,24 +231,24 @@ export function ConversationActionsDropdown({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent focus:outline-none focus:ring-0">
-          {trigger ?? <HugeiconsIcon icon={MoreHorizontalIcon} size={16} />}
+          {trigger ?? <HugeiconsIcon icon={MoreHorizontalIcon} size={16} strokeWidth={2} />}
         </DropdownMenuTrigger>
-        <DropdownMenuContent side={side} align={align} className="w-48">
+        <DropdownMenuContent side={side} align={align} className="w-44">
           <DropdownMenuGroup>
             <DropdownMenuItem onClick={() => setIsRenameOpen(true)}>
-              <HugeiconsIcon icon={PencilEdit01Icon} size={16} className="text-muted-foreground" />
+              <HugeiconsIcon icon={PencilEdit01Icon} size={14} strokeWidth={2} />
               <span>Rename</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleToggleStar}>
               <HugeiconsIcon
                 icon={conversation.starred ? StarOffIcon : StarIcon}
-                size={16}
-                className="text-muted-foreground"
+                size={14}
+                strokeWidth={2}
               />
-              <span>{conversation.starred ? 'Remove star' : 'Star'}</span>
+              <span>{conversation.starred ? 'Unstar' : 'Star'}</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setIsAddToProjectOpen(true)}>
-              <HugeiconsIcon icon={FolderAddIcon} size={16} className="text-muted-foreground" />
+              <HugeiconsIcon icon={FolderAddIcon} size={14} strokeWidth={2} />
               <span>Add to project</span>
             </DropdownMenuItem>
           </DropdownMenuGroup>
@@ -256,9 +256,9 @@ export function ConversationActionsDropdown({
           <DropdownMenuGroup>
             <DropdownMenuItem
               onClick={() => setIsDeleteOpen(true)}
-              className="bg-red-900/80 text-white hover:bg-red-900 focus:bg-red-900 focus:text-white [&_svg]:text-white"
+              className="bg-destructive/90 text-destructive-foreground hover:bg-destructive! focus:bg-destructive!"
             >
-              <HugeiconsIcon icon={Delete01Icon} size={16} />
+              <HugeiconsIcon icon={Delete01Icon} size={14} strokeWidth={2} />
               <span>Delete</span>
             </DropdownMenuItem>
           </DropdownMenuGroup>
@@ -344,7 +344,7 @@ export function ConversationActionsDropdown({
                   size="sm"
                   onClick={() => setShowCreateProject(true)}
                 >
-                  <HugeiconsIcon icon={Add01Icon} size={14} className="mr-1.5" />
+                  <HugeiconsIcon icon={Add01Icon} size={14} strokeWidth={2} className="mr-1.5" />
                   Create project
                 </Button>
               </div>
@@ -375,7 +375,7 @@ export function ConversationActionsDropdown({
                       disabled={isCreatingProject || !newProjectName.trim()}
                       className="text-muted-foreground hover:text-foreground"
                     >
-                      <HugeiconsIcon icon={Add01Icon} size={16} />
+                      <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={2} />
                     </Button>
                     <Button
                       size="icon"
@@ -386,7 +386,7 @@ export function ConversationActionsDropdown({
                       }}
                       className="text-muted-foreground hover:text-foreground"
                     >
-                      <HugeiconsIcon icon={Cancel01Icon} size={16} />
+                      <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={2} />
                     </Button>
                   </div>
                 ) : (
@@ -395,7 +395,7 @@ export function ConversationActionsDropdown({
                     size="sm"
                     onClick={() => setShowCreateProject(true)}
                   >
-                    <HugeiconsIcon icon={Add01Icon} size={14} className="mr-1.5" />
+                    <HugeiconsIcon icon={Add01Icon} size={14} strokeWidth={2} className="mr-1.5" />
                     Create new project
                   </Button>
                 )}
@@ -436,6 +436,7 @@ export function ConversationActionsDropdown({
                         <HugeiconsIcon
                           icon={Folder01Icon}
                           size={16}
+                          strokeWidth={2}
                           className="text-muted-foreground shrink-0"
                         />
                         <span className="truncate flex-1">{project.name}</span>

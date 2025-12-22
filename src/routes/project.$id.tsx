@@ -115,13 +115,14 @@ function ProjectDetailPage() {
               onClick={() => navigate({ to: '/projects' })}
               className="h-8 w-8"
             >
-              <HugeiconsIcon icon={ArrowLeft01Icon} size={16} />
+              <HugeiconsIcon icon={ArrowLeft01Icon} size={16} strokeWidth={2} />
             </Button>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg flex items-center justify-center">
                 <HugeiconsIcon
                   icon={Folder01Icon}
                   size={20}
+                  strokeWidth={2}
                   className="text-muted-foreground"
                 />
               </div>
@@ -142,6 +143,7 @@ function ProjectDetailPage() {
                 <HugeiconsIcon
                   icon={Message01Icon}
                   size={24}
+                  strokeWidth={2}
                   className="text-muted-foreground"
                 />
               </div>
@@ -166,12 +168,14 @@ function ProjectDetailPage() {
                       <HugeiconsIcon
                         icon={Message01Icon}
                         size={16}
+                        strokeWidth={2}
                         className="text-muted-foreground shrink-0"
                       />
                       {conversation.starred && (
                         <HugeiconsIcon
                           icon={StarIcon}
                           size={12}
+                          strokeWidth={2}
                           className="text-yellow-500 shrink-0"
                         />
                       )}
@@ -181,7 +185,7 @@ function ProjectDetailPage() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <HugeiconsIcon icon={Calendar03Icon} size={12} />
+                        <HugeiconsIcon icon={Calendar03Icon} size={12} strokeWidth={2} />
                         <span>
                           {new Date(conversation.createdAt).toLocaleDateString()}
                         </span>

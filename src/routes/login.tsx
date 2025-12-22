@@ -44,7 +44,7 @@ function LoginPage() {
         )}
 
         <Button className="w-full" size="lg" onClick={handleSignIn}>
-          <HugeiconsIcon icon={GithubIcon} size={20} className="mr-2" />
+          <HugeiconsIcon icon={GithubIcon} size={20} strokeWidth={2} className="mr-2" />
           Sign in with GitHub
         </Button>
 

@@ -85,7 +85,7 @@ function NewChatPage() {
           onClick={toggleSidebar}
           className="h-8 w-8"
         >
-          <HugeiconsIcon icon={SidebarLeftIcon} size={18} />
+          <HugeiconsIcon icon={SidebarLeftIcon} size={18} strokeWidth={2} />
         </Button>
       </div>
 

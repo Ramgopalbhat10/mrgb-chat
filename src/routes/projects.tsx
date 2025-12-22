@@ -4,7 +4,6 @@ import { ChatHeader } from '@/features/chat/components'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Folder01Icon,
-  Calendar03Icon,
   Add01Icon,
   Delete01Icon,
   MoreHorizontalIcon,
@@ -136,6 +135,7 @@ function ProjectsPage() {
               <HugeiconsIcon
                 icon={Folder01Icon}
                 size={24}
+                strokeWidth={2}
                 className="text-muted-foreground"
               />
             </div>
@@ -147,7 +147,7 @@ function ProjectsPage() {
               context.
             </p>
             <Button onClick={() => setIsCreateOpen(true)}>
-              <HugeiconsIcon icon={Add01Icon} size={16} className="mr-1.5" />
+              <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={2} className="mr-1.5" />
               Create project
             </Button>
           </div>
@@ -156,39 +156,37 @@ function ProjectsPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-medium">Your Projects</h2>
               <Button size="sm" onClick={() => setIsCreateOpen(true)}>
-                <HugeiconsIcon icon={Add01Icon} size={14} className="mr-1.5" />
+                <HugeiconsIcon icon={Add01Icon} size={14} strokeWidth={2} className="mr-1.5" />
                 New project
               </Button>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               {projects.map((project) => (
                 <div
                   key={project.id}
-                  className="group p-4 rounded-lg border border-border bg-card hover:bg-accent/50 cursor-pointer transition-colors relative"
+                  className="group p-4 rounded-lg border border-border/60 bg-card/50 hover:bg-accent/30 cursor-pointer transition-colors relative"
                   onClick={() => navigate({ to: '/project/$id', params: { id: project.id } })}
                 >
                   <div className="flex items-start gap-3">
                     <HugeiconsIcon
                       icon={Folder01Icon}
-                      size={20}
-                      className="text-muted-foreground shrink-0"
+                      size={18}
+                      strokeWidth={2}
+                      className="text-muted-foreground/70 shrink-0 mt-0.5"
                     />
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-foreground truncate pr-8">
+                      <h3 className="text-sm text-foreground truncate pr-8">
                         {project.name}
                       </h3>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between mt-4 text-xs text-muted-foreground">
-                    <span>
-                      {project.conversationCount ?? 0} conversation
-                      {(project.conversationCount ?? 0) !== 1 ? 's' : ''}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <HugeiconsIcon icon={Calendar03Icon} size={12} />
-                      <span>
-                        {new Date(project.createdAt).toLocaleDateString()}
-                      </span>
+                      <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground/70">
+                        <span>
+                          {project.conversationCount ?? 0} conversation
+                          {(project.conversationCount ?? 0) !== 1 ? 's' : ''}
+                        </span>
+                        <span>
+                          {new Date(project.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   {/* Actions dropdown */}
@@ -198,14 +196,14 @@ function ProjectsPage() {
                   >
                     <DropdownMenu>
                       <DropdownMenuTrigger className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent">
-                        <HugeiconsIcon icon={MoreHorizontalIcon} size={16} />
+                        <HugeiconsIcon icon={MoreHorizontalIcon} size={16} strokeWidth={2} />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
                           onClick={() => setDeleteProject(project)}
-                          className="bg-red-900/80 text-white hover:bg-red-900 focus:bg-red-900 focus:text-white [&_svg]:text-white"
+                          className="bg-destructive/90 text-destructive-foreground hover:bg-destructive! focus:bg-destructive!"
                         >
-                          <HugeiconsIcon icon={Delete01Icon} size={16} />
+                          <HugeiconsIcon icon={Delete01Icon} size={14} strokeWidth={2} />
                           <span>Delete</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -241,7 +239,7 @@ function ProjectsPage() {
             />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsCreateOpen(false)}>
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
               Cancel
             </Button>
             <Button

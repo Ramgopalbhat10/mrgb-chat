@@ -272,7 +272,7 @@ export function ChatView({
             onClick={toggleSidebar}
             className="h-8 w-8 text-muted-foreground hover:text-foreground border-0"
           >
-            <HugeiconsIcon icon={SidebarLeftIcon} size={16} />
+            <HugeiconsIcon icon={SidebarLeftIcon} size={16} strokeWidth={2} />
           </Button>
         </div>
       )}
