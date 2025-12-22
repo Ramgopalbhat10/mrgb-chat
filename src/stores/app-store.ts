@@ -60,18 +60,73 @@ export const useAppStore = create<AppState>()(
       return get().titleLoadingIds.has(conversationId)
     },
 
-    // Hydrate from IndexedDB
+    // Hydrate: IndexedDB first (instant), then sync from server (fresh data)
     hydrate: async () => {
       if (typeof window === 'undefined') return
 
       try {
-        const { conversations } = await db.hydrateFromIndexedDB()
+        // Step 1: Load from IndexedDB for instant UI (local-first)
+        const { conversations: localConversations } =
+          await db.hydrateFromIndexedDB()
         set({
-          conversations,
+          conversations: localConversations,
           isHydrated: true,
-          // Don't set activeConversationId here - let routes handle it
-          // This fixes sidebar highlighting when loading /chat/$id directly
         })
+
+        // Step 2: Fetch from server (Redis -> Turso) for fresh data
+        try {
+          const response = await fetch('/api/conversations')
+          if (response.ok) {
+            const serverTitles = await response.json()
+
+            // Transform server response to Conversation format
+            const serverConversations: Conversation[] = serverTitles.map(
+              (t: { id: string; title: string; lastMessageAt: string | null }) => ({
+                id: t.id,
+                title: t.title,
+                starred: false, // Titles endpoint doesn't include starred
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                lastMessageAt: t.lastMessageAt ? new Date(t.lastMessageAt) : null,
+              }),
+            )
+
+            // Merge: server is source of truth for titles, keep local for other fields
+            const mergedConversations = serverConversations.map((serverConv) => {
+              const localConv = localConversations.find((c) => c.id === serverConv.id)
+              return localConv
+                ? { ...localConv, title: serverConv.title, lastMessageAt: serverConv.lastMessageAt }
+                : serverConv
+            })
+
+            // Add any local-only conversations (not yet synced to server)
+            const serverIds = new Set(serverConversations.map((c) => c.id))
+            const localOnly = localConversations.filter((c) => !serverIds.has(c.id))
+
+            const finalConversations = [...mergedConversations, ...localOnly].sort(
+              (a, b) =>
+                (b.lastMessageAt?.getTime() ?? 0) - (a.lastMessageAt?.getTime() ?? 0),
+            )
+
+            set({ conversations: finalConversations })
+
+            // Sync server data back to IndexedDB for offline support
+            for (const conv of serverConversations) {
+              const existing = await db.getConversation(conv.id)
+              if (existing) {
+                await db.updateConversation(conv.id, {
+                  title: conv.title,
+                  lastMessageAt: conv.lastMessageAt,
+                })
+              } else {
+                await db.createConversation(conv)
+              }
+            }
+          }
+        } catch (serverError) {
+          // Server fetch failed - continue with local data (offline mode)
+          console.warn('Failed to sync with server, using local data:', serverError)
+        }
       } catch (error) {
         console.error('Failed to hydrate from IndexedDB:', error)
         set({

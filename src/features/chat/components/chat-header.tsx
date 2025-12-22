@@ -14,15 +14,16 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ title, isLoading }: ChatHeaderProps) {
-  const { state, toggleSidebar } = useSidebar()
-  const isSidebarClosed = state === 'collapsed'
+  const { state, toggleSidebar, isMobile } = useSidebar()
+  // Show toggle on mobile (always, since sidebar is a sheet) or desktop when collapsed
+  const showToggle = isMobile || state === 'collapsed'
 
   return (
     <header className="flex items-center justify-between h-10 px-4 border-b border-sidebar-border/50 shrink-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="flex items-center gap-3 min-w-0">
-        {/* Sidebar toggle - only visible when sidebar is closed */}
+        {/* Sidebar toggle - visible on mobile or when sidebar is collapsed */}
         <div
-          className={`transition-all duration-200 ease-out ${isSidebarClosed ? 'w-8 opacity-100' : 'w-0 opacity-0 overflow-hidden'}`}
+          className={`transition-all duration-200 ease-out ${showToggle ? 'w-8 opacity-100' : 'w-0 opacity-0 overflow-hidden'}`}
         >
           <Button
             variant="ghost"

@@ -27,9 +27,9 @@ function NewChatPage() {
   )
   const setPendingNewChat = useAppStore((state) => state.setPendingNewChat)
 
-  // Sidebar toggle for when sidebar is collapsed
-  const { state: sidebarState, toggleSidebar } = useSidebar()
-  const isSidebarClosed = sidebarState === 'collapsed'
+  // Sidebar toggle for mobile or when sidebar is collapsed
+  const { state: sidebarState, toggleSidebar, isMobile, openMobile } = useSidebar()
+  const showToggle = isMobile ? !openMobile : sidebarState === 'collapsed'
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -70,10 +70,10 @@ function NewChatPage() {
 
   return (
     <div className="flex h-full flex-col relative">
-      {/* Sidebar toggle when sidebar is collapsed */}
+      {/* Sidebar toggle when sidebar is collapsed or on mobile */}
       <div
         className={`absolute top-3 left-4 z-10 transition-opacity duration-150 ${
-          isSidebarClosed
+          showToggle
             ? 'opacity-100 delay-200'
             : 'opacity-0 pointer-events-none'
         }`}

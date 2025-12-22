@@ -3,12 +3,20 @@ import { eq } from 'drizzle-orm'
 
 import { db } from '@/server/db'
 import { conversations, messages } from '@/server/db/schema'
+import {
+  invalidateOnConversationUpdate,
+  invalidateOnConversationDelete,
+} from '@/server/cache'
+import { requireAuth } from '@/server/auth/get-session'
 
 export const Route = createFileRoute('/api/conversations/$id')({
   server: {
     handlers: {
       // GET /api/conversations/:id - Get a single conversation
-      GET: async ({ params }) => {
+      GET: async ({ params, request }) => {
+        const auth = await requireAuth(request)
+        if (!auth.authorized) return auth.response
+
         try {
           const result = await db
             .select()
@@ -29,6 +37,9 @@ export const Route = createFileRoute('/api/conversations/$id')({
 
       // PATCH /api/conversations/:id - Update a conversation
       PATCH: async ({ params, request }) => {
+        const auth = await requireAuth(request)
+        if (!auth.authorized) return auth.response
+
         try {
           const body = await request.json()
           const updates: Record<string, unknown> = {
@@ -44,6 +55,9 @@ export const Route = createFileRoute('/api/conversations/$id')({
             .update(conversations)
             .set(updates)
             .where(eq(conversations.id, params.id))
+
+          // Invalidate cache
+          await invalidateOnConversationUpdate(params.id)
 
           const result = await db
             .select()
@@ -63,13 +77,19 @@ export const Route = createFileRoute('/api/conversations/$id')({
       },
 
       // DELETE /api/conversations/:id - Delete a conversation
-      DELETE: async ({ params }) => {
+      DELETE: async ({ params, request }) => {
+        const auth = await requireAuth(request)
+        if (!auth.authorized) return auth.response
+
         try {
           // Messages will be cascade deleted due to foreign key constraint
           await db
             .delete(messages)
             .where(eq(messages.conversationId, params.id))
           await db.delete(conversations).where(eq(conversations.id, params.id))
+
+          // Invalidate cache
+          await invalidateOnConversationDelete(params.id)
 
           return new Response(null, { status: 204 })
         } catch (error) {

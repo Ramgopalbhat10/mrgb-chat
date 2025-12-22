@@ -5,11 +5,16 @@ import { eq } from 'drizzle-orm'
 
 import { db } from '@/server/db'
 import { conversations } from '@/server/db/schema'
+import { invalidateOnTitleGenerated } from '@/server/cache'
+import { requireAuth } from '@/server/auth/get-session'
 
 export const Route = createFileRoute('/api/generate-title')({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const auth = await requireAuth(request)
+        if (!auth.authorized) return auth.response
+
         if (!process.env.AI_GATEWAY_API_KEY) {
           return new Response('Missing AI_GATEWAY_API_KEY', { status: 500 })
         }
@@ -43,6 +48,9 @@ export const Route = createFileRoute('/api/generate-title')({
               .update(conversations)
               .set({ title, updatedAt: new Date() })
               .where(eq(conversations.id, conversationId))
+
+            // Invalidate cache so sidebar picks up new title
+            await invalidateOnTitleGenerated()
           } catch (dbError) {
             console.error('Failed to persist title to database:', dbError)
             // Continue even if DB update fails - IndexedDB will have the title

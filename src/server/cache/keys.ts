@@ -2,60 +2,41 @@
 // TTL values in seconds
 
 export const CACHE_TTL = {
-  CONVERSATION_LIST: 60, // 1 minute
-  CONVERSATION: 300, // 5 minutes
-  MESSAGES_PAGE: 300, // 5 minutes
+  CONVERSATION_TITLES: 120, // 2 minutes - sidebar list
+  MESSAGE_PREVIEW: 300, // 5 minutes - first message pair per conversation
   PROJECT_LIST: 300, // 5 minutes
-  PROJECT: 600, // 10 minutes
 } as const
 
 export const cacheKeys = {
-  // Conversation keys
-  conversationList: (cursor?: string) =>
-    cursor ? `conv:list:${cursor}` : 'conv:list:recent',
+  // Sidebar: lightweight list of {id, title, lastMessageAt}
+  conversationTitles: () => 'conv:titles',
 
-  conversation: (id: string) => `conv:${id}`,
-
-  conversationMessages: (conversationId: string, cursor?: string) =>
-    cursor
-      ? `conv:${conversationId}:msgs:${cursor}`
-      : `conv:${conversationId}:msgs:latest`,
+  // Message preview: first user message + assistant response
+  messagePreview: (conversationId: string) => `conv:${conversationId}:preview`,
 
   // Project keys
   projectList: () => 'project:list',
-
-  project: (id: string) => `project:${id}`,
-
   projectConversations: (projectId: string) => `project:${projectId}:convs`,
-
-  // Session keys
-  session: (sessionId: string) => `session:${sessionId}`,
-
-  // User keys
-  user: (userId: string) => `user:${userId}`,
 } as const
 
-// Helper to invalidate related keys
-export const invalidationPatterns = {
-  onNewMessage: (conversationId: string) => [
-    cacheKeys.conversationList(),
-    cacheKeys.conversation(conversationId),
-    `conv:${conversationId}:msgs:*`,
-  ],
+// Cache invalidation patterns
+export const invalidationKeys = {
+  onConversationCreate: () => [cacheKeys.conversationTitles()],
 
   onConversationUpdate: (conversationId: string) => [
-    cacheKeys.conversationList(),
-    cacheKeys.conversation(conversationId),
+    cacheKeys.conversationTitles(),
+    cacheKeys.messagePreview(conversationId),
   ],
 
   onConversationDelete: (conversationId: string) => [
-    cacheKeys.conversationList(),
-    cacheKeys.conversation(conversationId),
-    `conv:${conversationId}:*`,
+    cacheKeys.conversationTitles(),
+    cacheKeys.messagePreview(conversationId),
   ],
 
-  onProjectUpdate: (projectId: string) => [
-    cacheKeys.projectList(),
-    cacheKeys.project(projectId),
+  onNewMessage: (conversationId: string) => [
+    cacheKeys.conversationTitles(), // Update lastMessageAt
+    cacheKeys.messagePreview(conversationId), // May update first messages
   ],
+
+  onTitleGenerated: () => [cacheKeys.conversationTitles()],
 } as const

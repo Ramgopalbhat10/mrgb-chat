@@ -237,9 +237,9 @@ export function ChatView({
   // Always show header for existing conversations
   const showHeader = true
 
-  // Get sidebar state for toggle button on empty new chat
-  const { state: sidebarState, toggleSidebar } = useSidebar()
-  const isSidebarClosed = sidebarState === 'collapsed'
+  // Get sidebar state for toggle button (mobile or collapsed)
+  const { state: sidebarState, toggleSidebar, isMobile, openMobile } = useSidebar()
+  const showSidebarToggle = isMobile ? !openMobile : sidebarState === 'collapsed'
 
   return (
     <div className="flex flex-col h-full bg-background relative">
@@ -250,7 +250,7 @@ export function ChatView({
         // Uses CSS transition delay to wait for sidebar close animation
         <div
           className={`absolute top-3 left-4 z-10 transition-opacity duration-150 ${
-            isSidebarClosed
+            showSidebarToggle
               ? 'opacity-100 delay-200'
               : 'opacity-0 pointer-events-none delay-0'
           }`}
