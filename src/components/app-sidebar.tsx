@@ -140,12 +140,12 @@ export function AppSidebar({
                     </div>
                   ))}
                 </div>
-              ) : conversations.length === 0 ? (
+              ) : conversations.filter((c) => !c.archived).length === 0 ? (
                 <div className="px-3 py-6 text-xs text-muted-foreground/60 text-center">
                   No conversations yet
                 </div>
               ) : (
-                conversations.map((conversation) => {
+                conversations.filter((c) => !c.archived).map((conversation) => {
                   const titleLoading = titleLoadingIds.has(conversation.id)
                   return (
                     <SidebarMenuItem key={conversation.id} className="p-0.5">

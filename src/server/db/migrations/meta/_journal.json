@@ -15,6 +15,13 @@
       "when": 1766370445400,
       "tag": "0001_fresh_wolfpack",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1766381363427,
+      "tag": "0002_fuzzy_black_tom",
+      "breakpoints": true
     }
   ]
 }

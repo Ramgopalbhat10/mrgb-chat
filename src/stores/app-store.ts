@@ -77,25 +77,42 @@ export const useAppStore = create<AppState>()(
         try {
           const response = await fetch('/api/conversations')
           if (response.ok) {
-            const serverTitles = await response.json()
+            const data = await response.json()
+            // Handle both paginated response and legacy array response
+            const serverTitles = Array.isArray(data)
+              ? data
+              : data.conversations || []
 
             // Transform server response to Conversation format
             const serverConversations: Conversation[] = serverTitles.map(
-              (t: { id: string; title: string; lastMessageAt: string | null }) => ({
+              (t: {
+                id: string
+                title: string
+                lastMessageAt: string | null
+                starred?: boolean
+                archived?: boolean
+              }) => ({
                 id: t.id,
                 title: t.title,
-                starred: false, // Titles endpoint doesn't include starred
+                starred: t.starred ?? false,
+                archived: t.archived ?? false,
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 lastMessageAt: t.lastMessageAt ? new Date(t.lastMessageAt) : null,
               }),
             )
 
-            // Merge: server is source of truth for titles, keep local for other fields
+            // Merge: server is source of truth for titles/starred/archived, keep local for other fields
             const mergedConversations = serverConversations.map((serverConv) => {
               const localConv = localConversations.find((c) => c.id === serverConv.id)
               return localConv
-                ? { ...localConv, title: serverConv.title, lastMessageAt: serverConv.lastMessageAt }
+                ? {
+                    ...localConv,
+                    title: serverConv.title,
+                    lastMessageAt: serverConv.lastMessageAt,
+                    starred: serverConv.starred,
+                    archived: serverConv.archived,
+                  }
                 : serverConv
             })
 

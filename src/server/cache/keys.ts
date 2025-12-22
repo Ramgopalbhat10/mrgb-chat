@@ -7,8 +7,17 @@ export const CACHE_TTL = {
   PROJECT_LIST: 300, // 5 minutes
 } as const
 
+// Type for cached conversation title
+export interface ConversationTitle {
+  id: string
+  title: string
+  lastMessageAt: string | null
+  starred?: boolean
+  archived?: boolean
+}
+
 export const cacheKeys = {
-  // Sidebar: lightweight list of {id, title, lastMessageAt}
+  // Sidebar: lightweight list of {id, title, lastMessageAt, starred, archived}
   conversationTitles: () => 'conv:titles',
 
   // Message preview: first user message + assistant response

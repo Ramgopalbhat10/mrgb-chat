@@ -11,6 +11,7 @@ import { AppSidebar } from '@/components/app-sidebar'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { useAppStore } from '@/stores/app-store'
 import { AuthProvider, useAuth } from '@/providers/auth-provider'
+import { QueryProvider } from '@/providers/query-provider'
 
 import appCss from '../styles.css?url'
 
@@ -56,9 +57,11 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   return (
-    <AuthProvider>
-      <AuthenticatedLayout />
-    </AuthProvider>
+    <QueryProvider>
+      <AuthProvider>
+        <AuthenticatedLayout />
+      </AuthProvider>
+    </QueryProvider>
   )
 }
 

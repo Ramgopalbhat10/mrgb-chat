@@ -70,6 +70,7 @@ export const conversations = sqliteTable('conversations', {
   id: text('id').primaryKey(),
   title: text('title').notNull().default('New conversation'),
   starred: integer('starred', { mode: 'boolean' }).notNull().default(false),
+  archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),

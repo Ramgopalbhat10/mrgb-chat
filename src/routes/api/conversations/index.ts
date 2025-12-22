@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq, lt } from 'drizzle-orm'
 
 import { db } from '@/server/db'
 import { conversations } from '@/server/db/schema'
@@ -11,71 +11,133 @@ import {
 } from '@/server/cache'
 import { requireAuth } from '@/server/auth/get-session'
 
+const PAGE_SIZE = 30
+
 export const Route = createFileRoute('/api/conversations/')({
   server: {
     handlers: {
-      // GET /api/conversations - List conversation titles (cache-first)
+      // GET /api/conversations - List conversation titles with pagination
       GET: async ({ request }) => {
         const auth = await requireAuth(request)
         if (!auth.authorized) return auth.response
 
         const url = new URL(request.url)
         const starred = url.searchParams.get('starred')
+        const archived = url.searchParams.get('archived') === 'true'
         const fullData = url.searchParams.get('full') === 'true'
+        const cursor = url.searchParams.get('cursor')
+        const limit = Math.min(
+          parseInt(url.searchParams.get('limit') ?? String(PAGE_SIZE), 10),
+          100,
+        )
 
         try {
-          // For starred filter or full data request, skip cache
-          if (starred === 'true' || fullData) {
-            const result =
-              starred === 'true'
-                ? await db
-                    .select()
-                    .from(conversations)
-                    .where(eq(conversations.starred, true))
-                    .orderBy(
-                      desc(conversations.lastMessageAt),
-                      desc(conversations.createdAt),
-                    )
-                : await db
-                    .select()
-                    .from(conversations)
-                    .orderBy(
-                      desc(conversations.lastMessageAt),
-                      desc(conversations.createdAt),
-                    )
-            return Response.json(result)
+          // Build base conditions
+          const conditions = []
+
+          // Filter by archived status (default: non-archived)
+          conditions.push(eq(conversations.archived, archived))
+
+          // Filter by starred if specified
+          if (starred === 'true') {
+            conditions.push(eq(conversations.starred, true))
           }
 
-          // Cache-first for sidebar titles
-          const cached = await getCachedConversationTitles()
-          if (cached) {
-            return Response.json(cached)
+          // Cursor-based pagination
+          if (cursor) {
+            conditions.push(lt(conversations.lastMessageAt, new Date(cursor)))
           }
 
-          // Cache miss: fetch from Turso (only id, title, lastMessageAt)
+          // For full data request, return all fields
+          if (fullData) {
+            const result = await db
+              .select()
+              .from(conversations)
+              .where(and(...conditions))
+              .orderBy(
+                desc(conversations.lastMessageAt),
+                desc(conversations.createdAt),
+              )
+              .limit(limit + 1)
+
+            const hasMore = result.length > limit
+            const items = hasMore ? result.slice(0, -1) : result
+            const nextCursor =
+              hasMore && items.length > 0
+                ? items[items.length - 1].lastMessageAt?.toISOString()
+                : null
+
+            return Response.json({
+              conversations: items,
+              nextCursor,
+              hasMore,
+            })
+          }
+
+          // Cache-first for first page of non-archived, non-starred titles
+          if (!cursor && !archived && starred !== 'true') {
+            const cached = await getCachedConversationTitles()
+            if (cached && cached.length > 0) {
+              // Return paginated cache result
+              const items = cached.slice(0, limit)
+              const hasMore = cached.length > limit
+              const nextCursor =
+                hasMore && items.length > 0
+                  ? items[items.length - 1].lastMessageAt
+                  : null
+
+              return Response.json({
+                conversations: items,
+                nextCursor,
+                hasMore,
+              })
+            }
+          }
+
+          // Fetch from Turso (only id, title, lastMessageAt, starred, archived)
           const result = await db
             .select({
               id: conversations.id,
               title: conversations.title,
               lastMessageAt: conversations.lastMessageAt,
+              starred: conversations.starred,
+              archived: conversations.archived,
             })
             .from(conversations)
+            .where(and(...conditions))
             .orderBy(
               desc(conversations.lastMessageAt),
               desc(conversations.createdAt),
             )
+            .limit(limit + 1)
 
-          // Transform to cache format
-          const titles: ConversationTitle[] = result.map((c) => ({
+          const hasMore = result.length > limit
+          const items = hasMore ? result.slice(0, -1) : result
+
+          // Transform to response format
+          const titles: ConversationTitle[] = items.map((c) => ({
             id: c.id,
             title: c.title,
             lastMessageAt: c.lastMessageAt?.toISOString() ?? null,
+            starred: c.starred,
+            archived: c.archived,
           }))
 
-          // Cache the result
-          await setCachedConversationTitles(titles)
+          const nextCursor =
+            hasMore && titles.length > 0
+              ? titles[titles.length - 1].lastMessageAt
+              : null
 
-          return Response.json(titles)
+          // Cache first page of non-archived titles
+          if (!cursor && !archived && starred !== 'true') {
+            await setCachedConversationTitles(titles)
+          }
+
+          return Response.json({
+            conversations: titles,
+            nextCursor,
+            hasMore,
+          })
         } catch (error) {
           console.error('Failed to fetch conversations:', error)
           return new Response('Failed to fetch conversations', { status: 500 })

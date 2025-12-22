@@ -1,9 +1,11 @@
 import { openDB, type IDBPDatabase } from 'idb'
+import { compressString, decompressString } from './compression'
 
 export interface Conversation {
   id: string
   title: string
   starred: boolean
+  archived: boolean
   createdAt: Date
   updatedAt: Date
   lastMessageAt: Date | null
@@ -174,15 +176,28 @@ export async function getMessagesByConversation(
     'by-conversationId',
     conversationId,
   )
-  // Sort by createdAt ascending (oldest first)
-  return messages.sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  )
+  // Decompress content and sort by createdAt ascending (oldest first)
+  return messages
+    .map((msg) => ({
+      ...msg,
+      content: decompressString(msg.content),
+    }))
+    .sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    )
 }
 
 export async function createMessage(message: Message): Promise<Message> {
   const db = await getDB()
-  await db.put('messages', message)
+
+  // Compress content for storage (only for large messages)
+  const messageToStore = {
+    ...message,
+    content: compressString(message.content),
+  }
+
+  await db.put('messages', messageToStore)
 
   // Update conversation's lastMessageAt
   const conversation = await db.get('conversations', message.conversationId)
@@ -194,6 +209,7 @@ export async function createMessage(message: Message): Promise<Message> {
     })
   }
 
+  // Return original uncompressed message
   return message
 }
 

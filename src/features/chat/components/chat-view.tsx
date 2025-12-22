@@ -1,7 +1,7 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
-import { ChatMessages } from './chat-messages'
+import { ChatMessagesVirtual } from './chat-messages-virtual'
 import { ChatInput } from './chat-input'
 import { ChatHeader } from './chat-header'
 import { ChatEmptyState } from './chat-empty-state'
@@ -265,13 +265,13 @@ export function ChatView({
           </Button>
         </div>
       )}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        {!hasMessages ? (
+      {!hasMessages ? (
+        <div ref={scrollRef} className="flex-1 overflow-y-auto">
           <ChatEmptyState />
-        ) : (
-          <ChatMessages messages={messages} isLoading={isLoading} />
-        )}
-      </div>
+        </div>
+      ) : (
+        <ChatMessagesVirtual messages={messages} isLoading={isLoading} />
+      )}
       <ChatInput
         input={input}
         onInputChange={setInput}

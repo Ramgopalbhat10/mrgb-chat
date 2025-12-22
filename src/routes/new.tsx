@@ -48,6 +48,7 @@ function NewChatPage() {
           id: conversationId,
           title: 'New conversation',
           starred: false,
+          archived: false,
           createdAt: new Date(),
           updatedAt: new Date(),
           lastMessageAt: new Date(),
