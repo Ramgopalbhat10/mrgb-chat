@@ -1,0 +1,11 @@
+// nitro.config.ts
+import { defineNitroConfig } from 'nitro/config'
+
+export default defineNitroConfig({
+  preset: 'vercel',
+  vercel: {
+    functions: {
+      runtime: 'bun1.x',
+    },
+  },
+})
