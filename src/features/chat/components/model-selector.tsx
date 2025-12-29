@@ -18,41 +18,45 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowDown01Icon, CoinsIcon, BrainIcon } from '@hugeicons/core-free-icons'
-import * as Icons from '@lobehub/icons'
+import { ArrowDown01Icon, CoinsIcon, BrainIcon, AiBrain01Icon } from '@hugeicons/core-free-icons'
+import {
+  OpenAI,
+  Anthropic,
+  Google,
+  Meta,
+  Mistral,
+  DeepSeek,
+  Cohere,
+  Perplexity,
+  Aws,
+  Azure,
+  Groq,
+  Together,
+  Fireworks,
+  Alibaba,
+  Gemini,
+} from '@lobehub/icons'
 import { cn } from '@/lib/utils'
 
-export const PROVIDER_ICON_MAP: Record<string, string> = {
-  openai: 'OpenAI',
-  anthropic: 'Anthropic',
-  google: 'Google',
-  vertex: 'VertexAI',
-  meta: 'Meta',
-  xai: 'XAI',
-  mistral: 'Mistral',
-  deepseek: 'DeepSeek',
-  cohere: 'Cohere',
-  perplexity: 'Perplexity',
-  aws: 'Aws',
-  bedrock: 'Bedrock',
-  azure: 'Azure',
-  groq: 'Groq',
-  together: 'Together',
-  fireworks: 'Fireworks',
-  cerebras: 'Cerebras',
-  luma: 'Luma',
-  fal: 'Fal',
-  deepinfra: 'DeepInfra',
-  baseten: 'Baseten',
-  alibaba: 'Alibaba',
-  qwen: 'Qwen',
-  baichuan: 'Baichuan',
-  yi: 'Yi',
-  minimax: 'Minimax',
-  deepmind: 'DeepMind',
-  gemini: 'Gemini',
-  mistralai: 'Mistral',
-  perplexityai: 'Perplexity',
+// Map provider keys to icon components
+const PROVIDER_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+  openai: OpenAI,
+  anthropic: Anthropic,
+  google: Google,
+  meta: Meta,
+  mistral: Mistral,
+  mistralai: Mistral,
+  deepseek: DeepSeek,
+  cohere: Cohere,
+  perplexity: Perplexity,
+  perplexityai: Perplexity,
+  aws: Aws,
+  azure: Azure,
+  groq: Groq,
+  together: Together,
+  fireworks: Fireworks,
+  alibaba: Alibaba,
+  gemini: Gemini,
 }
 
 interface ModelSelectorProps {
@@ -112,22 +116,14 @@ export function ModelSelector({
     if (!provider) return null
     const normalizedKey = provider.toLowerCase()
     
-    // Check our map first
-    let iconName = PROVIDER_ICON_MAP[normalizedKey]
+    // Check our map for the icon component
+    const IconComponent = PROVIDER_ICONS[normalizedKey]
     
-    // If not in map, try to find a TitleCase match in Icons
-    if (!iconName) {
-      const titleCase = normalizedKey.charAt(0).toUpperCase() + normalizedKey.slice(1)
-      if ((Icons as any)[titleCase]) {
-        iconName = titleCase
-      }
+    if (!IconComponent) {
+      // Fallback to a generic AI icon
+      return <HugeiconsIcon icon={AiBrain01Icon} size={size} className="text-muted-foreground" />
     }
-
-    if (!iconName) return null
-    const IconComponent = (Icons as any)[iconName]
-    if (!IconComponent) return null
-    // Use invert to turn black icons white in dark mode. 
-    // brightness-[10] contrast-200 ensures they are purely white.
+    
     return <IconComponent size={size} className="text-foreground fill-current" />
   }, [])
 
@@ -183,8 +179,7 @@ export function ModelSelector({
           />
         </div>
         {Object.entries(groupedModels).map(([providerKey, providerModels]) => {
-          const displayLabel = PROVIDER_ICON_MAP[providerKey] || 
-                             providerKey.charAt(0).toUpperCase() + providerKey.slice(1)
+          const displayLabel = providerKey.charAt(0).toUpperCase() + providerKey.slice(1)
           
           return (
             <div key={providerKey} className="mb-2">
