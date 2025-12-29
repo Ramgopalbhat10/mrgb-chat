@@ -2,6 +2,7 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChatMessagesVirtual } from './chat-messages-virtual'
 import { ChatInput } from './chat-input'
 import { ChatHeader } from './chat-header'
@@ -11,32 +12,60 @@ import { useSidebar } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { SidebarLeftIcon } from '@hugeicons/core-free-icons'
+import { availableModelsQueryOptions } from '@/features/chat/data/queries'
 import * as db from '@/lib/indexeddb'
 import type { UIMessage } from 'ai'
+import type { ModelMetadata } from '@/features/chat/data/queries'
 
 interface ChatViewProps {
   conversationId: string
   initialMessages?: UIMessage[]
   pendingMessage?: string | null // Initial message from /new to send to AI
+  scrollToMessageId?: string // Message ID to scroll to (from shared items navigation)
 }
 
 export function ChatView({
   conversationId,
   initialMessages = [],
   pendingMessage = null,
+  scrollToMessageId,
 }: ChatViewProps) {
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const persistedMessageIds = useRef<Set<string>>(new Set())
   const hasSentPendingMessage = useRef(false)
-  const navigate = useNavigate()
-
   const conversations = useAppStore((state) => state.conversations)
   const titleLoadingIds = useAppStore((state) => state.titleLoadingIds)
+  const updateConversation = useAppStore((state) => state.updateConversation)
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const conversation = conversations.find((c) => c.id === conversationId)
   const title = conversation?.title
   const titleIsLoading = titleLoadingIds.has(conversationId)
+
+  // Fetch shared items to show indicator on shared messages
+  const { data: sharedData } = useQuery({
+    queryKey: ['shared-items'],
+    queryFn: async () => {
+      const res = await fetch('/api/share?list=true')
+      if (!res.ok) return { responses: [], conversations: [] }
+      return res.json()
+    },
+    staleTime: 30000,
+  })
+  
+  // Create a Map of originalMessageId -> shareId for quick lookup and correct URLs
+  const sharedMessageMap = useMemo((): Map<string, string> => {
+    if (!sharedData?.responses) return new Map<string, string>()
+    const map = new Map<string, string>()
+    for (const item of sharedData.responses) {
+      if (item.originalMessageId) {
+        map.set(item.originalMessageId, item.id)
+      }
+    }
+    return map
+  }, [sharedData])
 
   const handleConversationDeleted = () => {
     navigate({ to: '/new' })
@@ -46,6 +75,13 @@ export function ChatView({
   const transport = useMemo(
     () => new DefaultChatTransport({ api: '/api/chat' }),
     [],
+  )
+
+  // Model metadata - moved up to be available for persistMessage
+  const { data: models = [] } = useQuery(availableModelsQueryOptions())
+  const selectedModelMetadata = useMemo(
+    () => models.find((m: ModelMetadata) => m.id === (conversation as any)?.modelId) || models[0],
+    [models, conversation],
   )
 
   // Extract text content from UIMessage - handles both parts array and content string
@@ -72,6 +108,20 @@ export function ChatView({
     return ''
   }, [])
 
+  // Extract usage from message annotations
+  const getMessageUsage = useCallback((message: UIMessage) => {
+    const msg = message as any
+    if (msg.annotations) {
+      const usageAnnotation = msg.annotations.find((a: any) => a.type === 'usage' || a.usage)
+      if (usageAnnotation?.usage) return usageAnnotation.usage
+      if (usageAnnotation?.promptTokens) return usageAnnotation
+    }
+    if (msg.experimental_providerMetadata?.usage) {
+      return msg.experimental_providerMetadata.usage
+    }
+    return undefined
+  }, [])
+
   // Persist a single message to IndexedDB and server
   const persistMessage = useCallback(
     async (message: UIMessage) => {
@@ -82,7 +132,11 @@ export function ChatView({
       // Skip empty messages (streaming in progress)
       if (!content) return
 
-      console.log('Persisting message:', { id: message.id, role: message.role, contentLength: content.length })
+      // Extract usage metadata for assistant messages
+      const usage = message.role === 'assistant' ? getMessageUsage(message) : undefined
+      const metaJson = usage ? JSON.stringify({ usage, modelId: selectedModelMetadata?.id }) : null
+
+      console.log('Persisting message:', { id: message.id, role: message.role, contentLength: content.length, hasUsage: !!usage })
 
       const messageData = {
         id: message.id,
@@ -90,7 +144,7 @@ export function ChatView({
         role: message.role as 'user' | 'assistant' | 'system' | 'tool',
         content,
         clientId: null,
-        metaJson: null,
+        metaJson,
         createdAt: new Date(),
       }
 
@@ -116,10 +170,10 @@ export function ChatView({
         persistedMessageIds.current.delete(message.id)
       }
     },
-    [conversationId, getMessageContent],
+    [conversationId, getMessageContent, getMessageUsage, selectedModelMetadata],
   )
 
-  const { messages, sendMessage, status, setMessages } = useChat({
+  const chatResult = useChat({
     id: conversationId,
     transport,
     onFinish: async ({ message }) => {
@@ -127,6 +181,87 @@ export function ChatView({
       await persistMessage(message)
     },
   })
+  
+  const { messages, sendMessage, status, setMessages } = chatResult as any
+  
+  // Share a specific message - creates a public shareable link
+  const handleShareMessage = useCallback(async (messageId: string, userInput: string, response: string): Promise<string | null> => {
+    try {
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId,
+          conversationId,
+          userInput,
+          response,
+          modelId: selectedModelMetadata?.id,
+        }),
+      })
+      
+      if (!res.ok) {
+        console.error('Failed to create share link')
+        return null
+      }
+      
+      const data = await res.json()
+      // Refetch shared items to update the map
+      queryClient.invalidateQueries({ queryKey: ['shared-items'] })
+      return data.url
+    } catch (error) {
+      console.error('Error sharing message:', error)
+      return null
+    }
+  }, [conversationId, selectedModelMetadata, queryClient])
+
+  // Unshare a message - removes the public shareable link
+  const handleUnshareMessage = useCallback(async (shareId: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/share?id=${shareId}`, {
+        method: 'DELETE',
+      })
+      
+      if (!res.ok) {
+        console.error('Failed to delete share link')
+        return false
+      }
+      
+      // Refetch shared items to update the map
+      queryClient.invalidateQueries({ queryKey: ['shared-items'] })
+      return true
+    } catch (error) {
+      console.error('Error unsharing message:', error)
+      return false
+    }
+  }, [queryClient])
+
+  // Reload/regenerate function - removes last assistant message and regenerates
+  const handleRegenerate = useCallback(async () => {
+    // Find the last user message index
+    const lastUserMessageIndex = [...messages].reverse().findIndex((m: any) => m.role === 'user')
+    if (lastUserMessageIndex === -1) return
+    
+    const actualUserIndex = messages.length - 1 - lastUserMessageIndex
+    const lastUserMessage = messages[actualUserIndex]
+    
+    // Get the user message content before modifying messages
+    const userContent = typeof lastUserMessage.content === 'string' 
+      ? lastUserMessage.content 
+      : lastUserMessage.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') || ''
+    
+    if (!userContent) return
+    
+    // Remove BOTH the last user message AND any assistant messages after it
+    // This prevents duplication when sendMessage adds a new user message
+    const newMessages = messages.slice(0, actualUserIndex)
+    setMessages(newMessages)
+    
+    // Small delay to ensure state update propagates
+    await new Promise(resolve => setTimeout(resolve, 50))
+    
+    // Resend the message (this will add the user message and trigger AI response)
+    sendMessage({ text: userContent })
+  }, [messages, setMessages, sendMessage])
 
   // User messages are persisted manually in handleSubmit for reliability
   // This ensures they're saved before any re-renders or navigation
@@ -190,8 +325,9 @@ export function ChatView({
     console.log('useChat state:', { 
       status, 
       messageCount: messages.length,
-      messages: messages.map(m => ({ id: m.id, role: m.role, partsCount: m.parts?.length }))
+      messages: messages.map((m: any) => ({ id: m.id, role: m.role, partsCount: m.parts?.length }))
     })
+    console.log('useChat messages:', messages)
   }, [messages, status])
 
   useEffect(() => {
@@ -200,7 +336,7 @@ export function ChatView({
     }
   }, [messages])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, modelId?: string) => {
     e.preventDefault()
     if (!input.trim()) return
 
@@ -208,7 +344,7 @@ export function ChatView({
     setInput('')
 
     // Send message to AI - useChat will handle adding the message and streaming
-    sendMessage({ text: userText })
+    sendMessage({ text: userText }, { body: { modelId } })
 
     // Persist user message after a short delay to not interfere with useChat state
     setTimeout(async () => {
@@ -221,6 +357,11 @@ export function ChatView({
         clientId: null,
         metaJson: null,
         createdAt: new Date(),
+      }
+
+      // Update conversation with selected modelId if not already set
+      if (conversation && !conversation.modelId) {
+        updateConversation(conversationId, { modelId })
       }
 
       persistedMessageIds.current.add(userMessageId)
@@ -282,13 +423,24 @@ export function ChatView({
           <ChatEmptyState />
         </div>
       ) : (
-        <ChatMessagesVirtual messages={messages} isLoading={isLoading} />
+        <ChatMessagesVirtual 
+          messages={messages} 
+          isLoading={isLoading} 
+          onReload={handleRegenerate}
+          onShareMessage={handleShareMessage}
+          onUnshareMessage={handleUnshareMessage}
+          sharedMessageMap={sharedMessageMap}
+          modelId={selectedModelMetadata?.id}
+          scrollToMessageId={scrollToMessageId}
+        />
       )}
       <ChatInput
         input={input}
         onInputChange={setInput}
         onSubmit={handleSubmit}
         isLoading={isLoading}
+        messages={messages}
+        defaultModelId={conversation?.modelId}
       />
     </div>
   )

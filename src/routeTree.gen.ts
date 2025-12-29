@@ -9,14 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SharedRouteImport } from './routes/shared'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as NewRouteImport } from './routes/new'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatsRouteImport } from './routes/chats'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ShareIdRouteImport } from './routes/share.$id'
+import { Route as SIdRouteImport } from './routes/s/$id'
 import { Route as ProjectIdRouteImport } from './routes/project.$id'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
+import { Route as ApiShareRouteImport } from './routes/api/share'
 import { Route as ApiGenerateTitleRouteImport } from './routes/api/generate-title'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiProjectsIndexRouteImport } from './routes/api/projects/index'
@@ -31,6 +34,11 @@ import { Route as ApiConversationsIdShareRouteImport } from './routes/api/conver
 import { Route as ApiConversationsIdProjectsRouteImport } from './routes/api/conversations/$id.projects'
 import { Route as ApiConversationsIdMessagesRouteImport } from './routes/api/conversations/$id.messages'
 
+const SharedRoute = SharedRouteImport.update({
+  id: '/shared',
+  path: '/shared',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
@@ -61,6 +69,11 @@ const ShareIdRoute = ShareIdRouteImport.update({
   path: '/share/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SIdRoute = SIdRouteImport.update({
+  id: '/s/$id',
+  path: '/s/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectIdRoute = ProjectIdRouteImport.update({
   id: '/project/$id',
   path: '/project/$id',
@@ -69,6 +82,11 @@ const ProjectIdRoute = ProjectIdRouteImport.update({
 const ChatIdRoute = ChatIdRouteImport.update({
   id: '/chat/$id',
   path: '/chat/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiShareRoute = ApiShareRouteImport.update({
+  id: '/api/share',
+  path: '/api/share',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGenerateTitleRoute = ApiGenerateTitleRouteImport.update({
@@ -147,10 +165,13 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/new': typeof NewRoute
   '/projects': typeof ProjectsRoute
+  '/shared': typeof SharedRoute
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
+  '/api/share': typeof ApiShareRoute
   '/chat/$id': typeof ChatIdRoute
   '/project/$id': typeof ProjectIdRoute
+  '/s/$id': typeof SIdRoute
   '/share/$id': typeof ShareIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conversations/$id': typeof ApiConversationsIdRouteWithChildren
@@ -170,10 +191,13 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/new': typeof NewRoute
   '/projects': typeof ProjectsRoute
+  '/shared': typeof SharedRoute
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
+  '/api/share': typeof ApiShareRoute
   '/chat/$id': typeof ChatIdRoute
   '/project/$id': typeof ProjectIdRoute
+  '/s/$id': typeof SIdRoute
   '/share/$id': typeof ShareIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conversations/$id': typeof ApiConversationsIdRouteWithChildren
@@ -194,10 +218,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/new': typeof NewRoute
   '/projects': typeof ProjectsRoute
+  '/shared': typeof SharedRoute
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
+  '/api/share': typeof ApiShareRoute
   '/chat/$id': typeof ChatIdRoute
   '/project/$id': typeof ProjectIdRoute
+  '/s/$id': typeof SIdRoute
   '/share/$id': typeof ShareIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/conversations/$id': typeof ApiConversationsIdRouteWithChildren
@@ -219,10 +246,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/new'
     | '/projects'
+    | '/shared'
     | '/api/chat'
     | '/api/generate-title'
+    | '/api/share'
     | '/chat/$id'
     | '/project/$id'
+    | '/s/$id'
     | '/share/$id'
     | '/api/auth/$'
     | '/api/conversations/$id'
@@ -242,10 +272,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/new'
     | '/projects'
+    | '/shared'
     | '/api/chat'
     | '/api/generate-title'
+    | '/api/share'
     | '/chat/$id'
     | '/project/$id'
+    | '/s/$id'
     | '/share/$id'
     | '/api/auth/$'
     | '/api/conversations/$id'
@@ -265,10 +298,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/new'
     | '/projects'
+    | '/shared'
     | '/api/chat'
     | '/api/generate-title'
+    | '/api/share'
     | '/chat/$id'
     | '/project/$id'
+    | '/s/$id'
     | '/share/$id'
     | '/api/auth/$'
     | '/api/conversations/$id'
@@ -289,10 +325,13 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   NewRoute: typeof NewRoute
   ProjectsRoute: typeof ProjectsRoute
+  SharedRoute: typeof SharedRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiGenerateTitleRoute: typeof ApiGenerateTitleRoute
+  ApiShareRoute: typeof ApiShareRoute
   ChatIdRoute: typeof ChatIdRoute
   ProjectIdRoute: typeof ProjectIdRoute
+  SIdRoute: typeof SIdRoute
   ShareIdRoute: typeof ShareIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiConversationsIdRoute: typeof ApiConversationsIdRouteWithChildren
@@ -304,6 +343,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/shared': {
+      id: '/shared'
+      path: '/shared'
+      fullPath: '/shared'
+      preLoaderRoute: typeof SharedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects': {
       id: '/projects'
       path: '/projects'
@@ -346,6 +392,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShareIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/s/$id': {
+      id: '/s/$id'
+      path: '/s/$id'
+      fullPath: '/s/$id'
+      preLoaderRoute: typeof SIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/project/$id': {
       id: '/project/$id'
       path: '/project/$id'
@@ -358,6 +411,13 @@ declare module '@tanstack/react-router' {
       path: '/chat/$id'
       fullPath: '/chat/$id'
       preLoaderRoute: typeof ChatIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/share': {
+      id: '/api/share'
+      path: '/api/share'
+      fullPath: '/api/share'
+      preLoaderRoute: typeof ApiShareRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/generate-title': {
@@ -489,10 +549,13 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   NewRoute: NewRoute,
   ProjectsRoute: ProjectsRoute,
+  SharedRoute: SharedRoute,
   ApiChatRoute: ApiChatRoute,
   ApiGenerateTitleRoute: ApiGenerateTitleRoute,
+  ApiShareRoute: ApiShareRoute,
   ChatIdRoute: ChatIdRoute,
   ProjectIdRoute: ProjectIdRoute,
+  SIdRoute: SIdRoute,
   ShareIdRoute: ShareIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiConversationsIdRoute: ApiConversationsIdRouteWithChildren,

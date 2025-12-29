@@ -184,7 +184,24 @@ export const conversationProjectsRelations = relations(
   }),
 )
 
+// Shared messages for public sharing of individual responses
+export const sharedMessages = sqliteTable('shared_messages', {
+  id: text('id').primaryKey(),
+  // Track the original message and conversation for UI indicators
+  originalMessageId: text('original_message_id'),
+  conversationId: text('conversation_id'),
+  userInput: text('user_input').notNull(),
+  response: text('response').notNull(),
+  modelId: text('model_id'),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }),
+})
+
 // Types
+export type SharedMessage = typeof sharedMessages.$inferSelect
+export type NewSharedMessage = typeof sharedMessages.$inferInsert
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type Session = typeof sessions.$inferSelect

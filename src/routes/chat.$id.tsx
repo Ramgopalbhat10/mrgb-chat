@@ -5,7 +5,14 @@ import { useEffect, useState, useRef } from 'react'
 import * as db from '@/lib/indexeddb'
 import type { UIMessage } from 'ai'
 
-export const Route = createFileRoute('/chat/$id')({ component: ChatPage })
+export const Route = createFileRoute('/chat/$id')({
+  component: ChatPage,
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      messageId: typeof search.messageId === 'string' ? search.messageId : undefined,
+    } as { messageId?: string }
+  },
+})
 
 /**
  * /chat/$id route - Handles both new and existing conversations
@@ -14,6 +21,7 @@ export const Route = createFileRoute('/chat/$id')({ component: ChatPage })
  */
 function ChatPage() {
   const { id } = Route.useParams()
+  const { messageId: scrollToMessageId } = Route.useSearch()
   const setActiveConversationId = useAppStore(
     (state) => state.setActiveConversationId,
   )
@@ -119,6 +127,7 @@ function ChatPage() {
       conversationId={id}
       initialMessages={initialMessages}
       pendingMessage={pendingMessage}
+      scrollToMessageId={scrollToMessageId}
     />
   )
 }

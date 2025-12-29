@@ -4,6 +4,7 @@ import { compressString, decompressString } from './compression'
 export interface Conversation {
   id: string
   title: string
+  modelId?: string
   starred: boolean
   archived: boolean
   isPublic: boolean

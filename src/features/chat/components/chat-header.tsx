@@ -67,6 +67,8 @@ export function ChatHeader({
   }
 
   const handleShareModeChange = async (mode: 'private' | 'public') => {
+    // Avoid redundant API calls if already in this mode
+    if (shareMode === mode) return
     setShareMode(mode)
     await updateShareStatus(mode === 'public')
   }
@@ -100,9 +102,21 @@ export function ChatHeader({
         {isLoading ? (
           <div className="h-4 w-48 bg-muted/50 rounded animate-pulse" />
         ) : (
-          <h1 className="text-sm font-medium text-foreground truncate">
-            {title}
-          </h1>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <h1 className="text-sm font-medium text-foreground truncate">
+              {title}
+            </h1>
+            {conversation?.isPublic && (
+              <span title="This conversation is shared publicly">
+                <HugeiconsIcon 
+                  icon={Globe02Icon} 
+                  size={14} 
+                  strokeWidth={2} 
+                  className="text-emerald-500 shrink-0" 
+                />
+              </span>
+            )}
+          </div>
         )}
       </div>
       <div className="flex items-center gap-1">

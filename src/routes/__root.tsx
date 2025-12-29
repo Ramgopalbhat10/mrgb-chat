@@ -82,7 +82,7 @@ function AuthenticatedLayout() {
 
   // Check if current route is public (no auth/sidebar needed)
   const isLoginPage = routerState.location.pathname === '/login'
-  const isSharePage = routerState.location.pathname.startsWith('/share/')
+  const isSharePage = routerState.location.pathname.startsWith('/share/') || routerState.location.pathname.startsWith('/s/')
   const isPublicPage = isLoginPage || isSharePage
 
   // Hydrate from IndexedDB on mount

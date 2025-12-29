@@ -49,6 +49,7 @@ function NewChatPage() {
           title: 'New conversation',
           starred: false,
           archived: false,
+          isPublic: false,
           createdAt: new Date(),
           updatedAt: new Date(),
           lastMessageAt: new Date(),

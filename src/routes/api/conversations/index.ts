@@ -94,7 +94,7 @@ export const Route = createFileRoute('/api/conversations/')({
             }
           }
 
-          // Fetch from Turso (only id, title, lastMessageAt, starred, archived)
+          // Fetch from Turso (only id, title, lastMessageAt, starred, archived, isPublic)
           const result = await db
             .select({
               id: conversations.id,
@@ -102,6 +102,7 @@ export const Route = createFileRoute('/api/conversations/')({
               lastMessageAt: conversations.lastMessageAt,
               starred: conversations.starred,
               archived: conversations.archived,
+              isPublic: conversations.isPublic,
             })
             .from(conversations)
             .where(and(...conditions))
@@ -121,6 +122,7 @@ export const Route = createFileRoute('/api/conversations/')({
             lastMessageAt: c.lastMessageAt?.toISOString() ?? null,
             starred: c.starred,
             archived: c.archived,
+            isPublic: c.isPublic,
           }))
 
           const nextCursor =

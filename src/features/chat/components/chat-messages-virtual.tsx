@@ -1,5 +1,22 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { Share01Icon, Download01Icon, Copy01Icon, Refresh01Icon, Tick01Icon, Link01Icon, LockIcon, Globe02Icon, Loading03Icon } from '@hugeicons/core-free-icons'
+import { Button } from '@/components/ui/button'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { MessageUsageIndicator, type MessageUsage } from './message-usage'
 import type { UIMessage } from 'ai'
 import { cn } from '@/lib/utils'
 import { Streamdown } from 'streamdown'
@@ -9,6 +26,12 @@ interface ChatMessagesVirtualProps {
   isLoading?: boolean
   onLoadMore?: () => void
   hasMore?: boolean
+  onReload?: () => void
+  onShareMessage?: (messageId: string, userInput: string, response: string) => Promise<string | null>
+  onUnshareMessage?: (shareId: string) => Promise<boolean>
+  sharedMessageMap?: Map<string, string> // originalMessageId -> shareId
+  modelId?: string
+  scrollToMessageId?: string
 }
 
 function getMessageText(message: UIMessage): string {
@@ -53,14 +76,104 @@ function estimateMessageHeight(message: UIMessage): number {
   return baseHeight + lines * lineHeight + codeBlockHeight
 }
 
+function MessageAction({ 
+  icon, 
+  onClick, 
+  tooltip,
+  successIcon,
+  successTooltip,
+  iconClassName,
+}: { 
+  icon: any
+  onClick: () => void
+  tooltip: string
+  successIcon?: any
+  successTooltip?: string
+  iconClassName?: string
+}) {
+  const [showSuccess, setShowSuccess] = useState(false)
+  
+  const handleClick = () => {
+    onClick()
+    if (successIcon) {
+      setShowSuccess(true)
+      setTimeout(() => setShowSuccess(false), 2000)
+    }
+  }
+
+  const currentIcon = showSuccess && successIcon ? successIcon : icon
+  const currentTooltip = showSuccess && successTooltip ? successTooltip : tooltip
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "h-7 w-7 transition-all duration-200",
+            showSuccess 
+              ? "text-emerald-500 hover:text-emerald-400" 
+              : iconClassName || "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          )}
+          onClick={handleClick}
+        >
+          <HugeiconsIcon icon={currentIcon} size={15} strokeWidth={2} />
+        </Button>
+      } />
+      <TooltipContent side="bottom" sideOffset={4}>
+        {currentTooltip}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+// Extract usage from UIMessage metadata (AI SDK v5 uses message.metadata)
+function getMessageUsage(message: UIMessage): MessageUsage | undefined {
+  const msg = message as any
+  
+  // AI SDK v5: Usage data is in message.metadata (set via messageMetadata callback)
+  if (msg.metadata?.usage) {
+    const usage: MessageUsage = {
+      inputTokens: msg.metadata.usage.inputTokens,
+      outputTokens: msg.metadata.usage.outputTokens,
+      totalTokens: msg.metadata.usage.totalTokens,
+      reasoningTokens: msg.metadata.usage.reasoningTokens,
+    }
+    
+    // Gateway cost is included directly in metadata
+    if (msg.metadata.gatewayCost) {
+      usage.gatewayCost = msg.metadata.gatewayCost
+    }
+    
+    return usage
+  }
+  
+  return undefined
+}
+
 export function ChatMessagesVirtual({
   messages,
   isLoading,
   onLoadMore,
   hasMore,
+  onReload,
+  onShareMessage,
+  onUnshareMessage,
+  sharedMessageMap,
+  modelId,
+  scrollToMessageId,
 }: ChatMessagesVirtualProps) {
   const parentRef = useRef<HTMLDivElement>(null)
   const lastMessageCount = useRef(messages.length)
+  const hasScrolledToTarget = useRef(false)
+  
+  // Share dialog state
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [shareDialogMessage, setShareDialogMessage] = useState<{ id: string; userInput: string; response: string } | null>(null)
+  const [shareMode, setShareMode] = useState<'private' | 'public'>('private')
+  const [isUpdatingShare, setIsUpdatingShare] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const lastMessage = messages[messages.length - 1]
   const isStreaming = isLoading && lastMessage?.role === 'assistant'
@@ -81,20 +194,36 @@ export function ChatMessagesVirtual({
     overscan: 5,
   })
 
-  // Auto-scroll to bottom when new messages arrive
+  // Scroll to specific message if scrollToMessageId is provided
   useEffect(() => {
+    if (scrollToMessageId && messages.length > 0 && !hasScrolledToTarget.current) {
+      const messageIndex = messages.findIndex(m => m.id === scrollToMessageId)
+      if (messageIndex !== -1) {
+        hasScrolledToTarget.current = true
+        // Delay to ensure virtualizer is ready after messages load
+        setTimeout(() => {
+          virtualizer.scrollToIndex(messageIndex, { align: 'start', behavior: 'smooth' })
+        }, 300)
+      }
+    }
+  }, [scrollToMessageId, messages, virtualizer])
+
+  // Auto-scroll to bottom when new messages arrive (skip if we have a scroll target)
+  useEffect(() => {
+    if (scrollToMessageId && !hasScrolledToTarget.current) return
     if (messages.length > lastMessageCount.current) {
       lastMessageCount.current = messages.length
       virtualizer.scrollToIndex(itemCount - 1, { align: 'end', behavior: 'smooth' })
     }
-  }, [messages.length, itemCount, virtualizer])
+  }, [messages.length, itemCount, virtualizer, scrollToMessageId])
 
-  // Auto-scroll during streaming
+  // Auto-scroll during streaming (skip if we have a scroll target that hasn't been reached)
   useEffect(() => {
+    if (scrollToMessageId && !hasScrolledToTarget.current) return
     if (isStreaming) {
       virtualizer.scrollToIndex(itemCount - 1, { align: 'end' })
     }
-  }, [isStreaming, itemCount, virtualizer])
+  }, [isStreaming, itemCount, virtualizer, scrollToMessageId])
 
   // Load more when scrolling to top
   const handleScroll = useCallback(() => {
@@ -113,6 +242,51 @@ export function ChatMessagesVirtual({
     element.addEventListener('scroll', handleScroll)
     return () => element.removeEventListener('scroll', handleScroll)
   }, [handleScroll])
+
+  // Share dialog handlers
+  const openShareDialog = (messageId: string, userInput: string, response: string) => {
+    const isAlreadyShared = sharedMessageMap?.has(messageId)
+    setShareDialogMessage({ id: messageId, userInput, response })
+    setShareMode(isAlreadyShared ? 'public' : 'private')
+    setShareDialogOpen(true)
+    setCopied(false)
+  }
+
+  const handleShareModeChange = async (mode: 'private' | 'public') => {
+    if (shareMode === mode || !shareDialogMessage) return
+    setShareMode(mode)
+    setIsUpdatingShare(true)
+    
+    try {
+      if (mode === 'public') {
+        // Share the message
+        if (onShareMessage) {
+          await onShareMessage(shareDialogMessage.id, shareDialogMessage.userInput, shareDialogMessage.response)
+        }
+      } else {
+        // Unshare the message
+        const shareId = sharedMessageMap?.get(shareDialogMessage.id)
+        if (shareId && onUnshareMessage) {
+          await onUnshareMessage(shareId)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update share status:', error)
+    } finally {
+      setIsUpdatingShare(false)
+    }
+  }
+
+  const handleCopyShareLink = async () => {
+    if (!shareDialogMessage || shareMode === 'private') return
+    
+    const shareId = sharedMessageMap?.get(shareDialogMessage.id)
+    if (shareId) {
+      await navigator.clipboard.writeText(`${window.location.origin}/s/${shareId}`)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
 
   if (messages.length === 0) {
     return null
@@ -168,7 +342,7 @@ export function ChatMessagesVirtual({
               >
                 <div
                   className={cn(
-                    'flex flex-col gap-1.5 py-3',
+                    'flex flex-col gap-1.5 py-3 group',
                     isUser ? 'items-end' : 'items-start',
                   )}
                 >
@@ -183,15 +357,66 @@ export function ChatMessagesVirtual({
                     {isUser ? (
                       <p className="whitespace-pre-wrap">{text}</p>
                     ) : (
-                      <div
-                        className={cn(
-                          'prose prose-sm prose-invert max-w-none',
-                          isLastAssistant &&
-                            isStreaming &&
-                            '**:animate-in **:fade-in **:duration-150',
+                      <div className="flex flex-col gap-3">
+                        <div
+                          className={cn(
+                            'prose prose-sm prose-invert max-w-none',
+                            isLastAssistant &&
+                              isStreaming &&
+                              '**:animate-in **:fade-in **:duration-150',
+                          )}
+                        >
+                          <Streamdown>{text}</Streamdown>
+                        </div>
+                        {!isStreaming && (
+                          <div className="flex items-center gap-0.5">
+                            <MessageUsageIndicator 
+                              usage={getMessageUsage(message)}
+                              modelId={modelId}
+                            />
+                            <MessageAction 
+                              icon={Copy01Icon} 
+                              successIcon={Tick01Icon}
+                              successTooltip="Copied!"
+                              onClick={() => navigator.clipboard.writeText(text)} 
+                              tooltip="Copy" 
+                            />
+                            <MessageAction 
+                              icon={Download01Icon} 
+                              successIcon={Tick01Icon}
+                              successTooltip="Downloaded!"
+                              onClick={() => {
+                                const blob = new Blob([text], { type: 'text/markdown' })
+                                const url = URL.createObjectURL(blob)
+                                const a = document.createElement('a')
+                                a.href = url
+                                a.download = `chat-${message.id.slice(0, 8)}.md`
+                                document.body.appendChild(a)
+                                a.click()
+                                document.body.removeChild(a)
+                                URL.revokeObjectURL(url)
+                              }} 
+                              tooltip="Download" 
+                            />
+                            <MessageAction 
+                              icon={Refresh01Icon} 
+                              onClick={() => onReload?.()} 
+                              tooltip="Regenerate" 
+                            />
+                            <MessageAction 
+                              icon={sharedMessageMap?.has(message.id) ? Link01Icon : Share01Icon}
+                              iconClassName={sharedMessageMap?.has(message.id) ? "text-emerald-500 hover:text-emerald-400" : undefined}
+                              onClick={() => {
+                                // Find the user message before this assistant message
+                                const msgIndex = messages.findIndex(m => m.id === message.id)
+                                const userMessage = msgIndex > 0 ? messages[msgIndex - 1] : null
+                                const userInput = userMessage ? getMessageText(userMessage) : ''
+                                openShareDialog(message.id, userInput, text)
+                              }} 
+                              tooltip={sharedMessageMap?.has(message.id) ? "Manage share" : "Share"}
+                            />
+                          </div>
                         )}
-                      >
-                        <Streamdown>{text}</Streamdown>
                       </div>
                     )}
                   </div>
@@ -201,6 +426,99 @@ export function ChatMessagesVirtual({
           })}
         </div>
       </div>
+
+      {/* Share Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share response</DialogTitle>
+            <DialogDescription>
+              Share this response publicly with a link.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            {/* Private option */}
+            <button
+              onClick={() => handleShareModeChange('private')}
+              disabled={isUpdatingShare}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                shareMode === 'private'
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:bg-accent/50'
+              } disabled:opacity-50`}
+            >
+              <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
+                <HugeiconsIcon icon={LockIcon} size={18} strokeWidth={2} className="text-muted-foreground" />
+              </div>
+              <div className="flex-1 text-left">
+                <div className="text-sm font-medium">Private</div>
+                <div className="text-xs text-muted-foreground">Only you have access</div>
+              </div>
+              {shareMode === 'private' && (
+                <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                  <svg className="w-3 h-3 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+            </button>
+
+            {/* Public option */}
+            <button
+              onClick={() => handleShareModeChange('public')}
+              disabled={isUpdatingShare}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                shareMode === 'public'
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:bg-accent/50'
+              } disabled:opacity-50`}
+            >
+              <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
+                <HugeiconsIcon icon={Globe02Icon} size={18} strokeWidth={2} className="text-muted-foreground" />
+              </div>
+              <div className="flex-1 text-left">
+                <div className="text-sm font-medium">Public access</div>
+                <div className="text-xs text-muted-foreground">Anyone with the link can view</div>
+              </div>
+              {shareMode === 'public' && (
+                <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                  {isUpdatingShare ? (
+                    <HugeiconsIcon icon={Loading03Icon} size={12} strokeWidth={2} className="text-primary-foreground animate-spin" />
+                  ) : (
+                    <svg className="w-3 h-3 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+              )}
+            </button>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Don't share personal information or third-party content without permission.
+          </p>
+
+          <DialogFooter>
+            <Button
+              onClick={handleCopyShareLink}
+              disabled={shareMode === 'private' || isUpdatingShare || !sharedMessageMap?.has(shareDialogMessage?.id || '')}
+              className="w-full sm:w-auto"
+            >
+              {copied ? (
+                <>
+                  <HugeiconsIcon icon={Tick01Icon} size={16} strokeWidth={2} className="mr-1.5" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <HugeiconsIcon icon={Copy01Icon} size={16} strokeWidth={2} className="mr-1.5" />
+                  Copy share link
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

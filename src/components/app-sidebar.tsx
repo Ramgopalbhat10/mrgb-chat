@@ -22,6 +22,7 @@ import {
   MessageMultiple01Icon,
   Logout01Icon,
   StarIcon,
+  Share01Icon,
 } from '@hugeicons/core-free-icons'
 import { Input } from './ui/input'
 import { Link, useLocation } from '@tanstack/react-router'
@@ -60,8 +61,9 @@ export function AppSidebar({
   }
   const isChatsRoute = location.pathname === '/chats'
   const isProjectsRoute = location.pathname === '/projects' || location.pathname.startsWith('/project/')
+  const isSharedRoute = location.pathname === '/shared'
   
-  // Don't highlight conversations when on /chats, /projects, or /projects/$id routes
+  // Don't highlight conversations when on /chats, /projects, /shared routes
   const isOnConversationRoute = location.pathname.startsWith('/chat/') || location.pathname === '/new'
   return (
     <Sidebar className="border-r-0">
@@ -121,6 +123,27 @@ export function AppSidebar({
                       }
                     />
                     <span>Projects</span>
+                  </Link>
+                )}
+              />
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={isSharedRoute}
+                className="w-full h-8 px-3 mb-0.5 text-sm font-medium"
+                render={(props) => (
+                  <Link to="/shared" {...props}>
+                    <HugeiconsIcon
+                      icon={Share01Icon}
+                      size={16}
+                      strokeWidth={2}
+                      className={
+                        isSharedRoute
+                          ? 'text-foreground'
+                          : 'text-muted-foreground'
+                      }
+                    />
+                    <span>Shared</span>
                   </Link>
                 )}
               />

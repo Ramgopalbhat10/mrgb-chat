@@ -57,6 +57,22 @@ const migrations = [
     updated_at integer NOT NULL,
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
   )`,
+
+  // Create shared_messages table for public sharing of individual responses
+  `CREATE TABLE IF NOT EXISTS shared_messages (
+    id text PRIMARY KEY NOT NULL,
+    original_message_id text,
+    conversation_id text,
+    user_input text NOT NULL,
+    response text NOT NULL,
+    model_id text,
+    created_at integer NOT NULL,
+    expires_at integer
+  )`,
+  
+  // Add new columns to existing shared_messages table if they don't exist
+  `ALTER TABLE shared_messages ADD COLUMN original_message_id text`,
+  `ALTER TABLE shared_messages ADD COLUMN conversation_id text`,
 ]
 
 async function runMigrations() {

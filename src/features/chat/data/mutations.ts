@@ -39,6 +39,8 @@ export function useCreateConversation() {
         id: generateClientId(),
         title: newConversation.title ?? 'New conversation',
         starred: newConversation.starred ?? false,
+        archived: false,
+        isPublic: false,
         createdAt: new Date(),
         updatedAt: new Date(),
         lastMessageAt: null,

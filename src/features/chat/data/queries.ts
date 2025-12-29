@@ -15,6 +15,11 @@ export const conversationKeys = {
     [...conversationKeys.messages(conversationId), { cursor }] as const,
 }
 
+export const modelKeys = {
+  all: ['models'] as const,
+  available: () => [...modelKeys.all, 'available'] as const,
+}
+
 export const projectKeys = {
   all: ['projects'] as const,
   lists: () => [...projectKeys.all, 'list'] as const,
@@ -89,4 +94,30 @@ export const projectsQueryOptions = () =>
       return response.json()
     },
     staleTime: 60_000, // 1 minute
+  })
+
+export interface ModelMetadata {
+  id: string
+  name: string
+  description?: string
+  context_window?: number
+  max_tokens?: number
+  owned_by: string
+  tags?: string[]
+  pricing?: {
+    input: string
+    output: string
+    cachedInputTokens?: string
+    cacheCreationInputTokens?: string
+  }
+}
+
+export const availableModelsQueryOptions = () =>
+  queryOptions({
+    queryKey: modelKeys.available(),
+    queryFn: async (): Promise<ModelMetadata[]> => {
+      const { getAvailableModels } = await import('@/server/ai/gateway')
+      return getAvailableModels()
+    },
+    staleTime: 1000 * 60 * 60, // 1 hour
   })

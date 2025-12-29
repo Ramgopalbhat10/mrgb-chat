@@ -91,18 +91,20 @@ export const useAppStore = create<AppState>()(
                 lastMessageAt: string | null
                 starred?: boolean
                 archived?: boolean
+                isPublic?: boolean
               }) => ({
                 id: t.id,
                 title: t.title,
                 starred: t.starred ?? false,
                 archived: t.archived ?? false,
+                isPublic: t.isPublic ?? false,
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 lastMessageAt: t.lastMessageAt ? new Date(t.lastMessageAt) : null,
               }),
             )
 
-            // Merge: server is source of truth for titles/starred/archived, keep local for other fields
+            // Merge: server is source of truth for titles/starred/archived/isPublic, keep local for other fields
             const mergedConversations = serverConversations.map((serverConv) => {
               const localConv = localConversations.find((c) => c.id === serverConv.id)
               return localConv
@@ -112,6 +114,7 @@ export const useAppStore = create<AppState>()(
                     lastMessageAt: serverConv.lastMessageAt,
                     starred: serverConv.starred,
                     archived: serverConv.archived,
+                    isPublic: serverConv.isPublic,
                   }
                 : serverConv
             })

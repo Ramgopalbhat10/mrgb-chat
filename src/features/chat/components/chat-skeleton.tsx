@@ -10,7 +10,6 @@ export function ChatSkeleton() {
         <div className="flex items-center gap-1">
           <Skeleton className="h-8 w-8 rounded-md" />
           <Skeleton className="h-8 w-8 rounded-md" />
-          <Skeleton className="h-8 w-8 rounded-md" />
         </div>
       </div>
 
