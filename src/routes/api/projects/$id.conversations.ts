@@ -4,7 +4,7 @@ import { eq, and } from 'drizzle-orm'
 import { db } from '@/server/db'
 import { conversationProjects, projects } from '@/server/db/schema'
 import { getSession } from '@/server/auth/get-session'
-import { invalidateProjectsMetadata } from '@/server/cache/redis'
+import { invalidateOnProjectChange, incrementCacheVersion } from '@/server/cache'
 
 export const Route = createFileRoute('/api/projects/$id/conversations')({
   server: {
@@ -74,8 +74,9 @@ export const Route = createFileRoute('/api/projects/$id/conversations')({
             .set({ updatedAt: new Date() })
             .where(eq(projects.id, params.id))
 
-          // Invalidate cache
-          await invalidateProjectsMetadata()
+          // Invalidate cache and increment version for cross-device sync
+          await invalidateOnProjectChange()
+          await incrementCacheVersion()
 
           return Response.json({ success: true }, { status: 201 })
         } catch (error) {
@@ -110,8 +111,9 @@ export const Route = createFileRoute('/api/projects/$id/conversations')({
               ),
             )
 
-          // Invalidate cache
-          await invalidateProjectsMetadata()
+          // Invalidate cache and increment version for cross-device sync
+          await invalidateOnProjectChange()
+          await incrementCacheVersion()
 
           return new Response(null, { status: 204 })
         } catch (error) {

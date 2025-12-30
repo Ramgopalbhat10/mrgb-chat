@@ -1,17 +1,11 @@
-import { useState, useEffect } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { ChatHeader, ConversationList } from '@/features/chat/components'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/stores/app-store'
-
-interface Project {
-  id: string
-  name: string
-  createdAt: Date
-  updatedAt: Date
-}
+import { projectsQueryOptions, projectConversationsQueryOptions } from '@/features/chat/data/queries'
 
 export const Route = createFileRoute('/project/$id')({
   component: ProjectDetailPage,
@@ -22,42 +16,16 @@ function ProjectDetailPage() {
   const navigate = useNavigate()
   const conversations = useAppStore((state) => state.conversations)
 
-  const [project, setProject] = useState<Project | null>(null)
-  const [conversationIds, setConversationIds] = useState<string[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  // Fetch projects list using TanStack Query (cached)
+  const { data: projects = [], isLoading: isLoadingProjects } = useQuery(projectsQueryOptions())
+  const project = projects.find((p) => p.id === id)
 
-  useEffect(() => {
-    fetchProjectData()
-  }, [id])
+  // Fetch project conversations using TanStack Query (cached)
+  const { data: conversationIds = [], isLoading: isLoadingConvs } = useQuery(
+    projectConversationsQueryOptions(id)
+  )
 
-  const fetchProjectData = async () => {
-    setIsLoading(true)
-    try {
-      // Fetch project details and conversations in parallel
-      const [projectResponse, convsResponse] = await Promise.all([
-        fetch(`/api/projects`),
-        fetch(`/api/projects/${id}/conversations`),
-      ])
-
-      if (projectResponse.ok) {
-        const projectsList = await projectResponse.json()
-        const foundProject = projectsList.find((p: Project) => p.id === id)
-        setProject(foundProject || null)
-      }
-
-      if (convsResponse.ok) {
-        const convIds = await convsResponse.json()
-        // console.log('Project conversations:', convIds)
-        setConversationIds(convIds)
-      } else {
-        console.error('Failed to fetch conversations:', convsResponse.status)
-      }
-    } catch (error) {
-      console.error('Failed to fetch project data:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const isLoading = isLoadingProjects || isLoadingConvs
 
   // Filter conversations that are in this project
   const projectConversations = conversations.filter((c) =>

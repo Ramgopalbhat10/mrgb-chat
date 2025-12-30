@@ -24,10 +24,16 @@ export const projectKeys = {
   all: ['projects'] as const,
   lists: () => [...projectKeys.all, 'list'] as const,
   list: () => [...projectKeys.lists()] as const,
+  metadata: () => [...projectKeys.all, 'metadata'] as const,
   details: () => [...projectKeys.all, 'detail'] as const,
   detail: (id: string) => [...projectKeys.details(), id] as const,
   conversations: (projectId: string) =>
     [...projectKeys.detail(projectId), 'conversations'] as const,
+}
+
+export const sharedKeys = {
+  all: ['shared'] as const,
+  items: () => [...sharedKeys.all, 'items'] as const,
 }
 
 // Query options
@@ -83,17 +89,92 @@ export const messagesQueryOptions = (conversationId: string, cursor?: string) =>
     staleTime: 60_000, // 1 minute
   })
 
+export interface Project {
+  id: string
+  name: string
+  createdAt: string
+  updatedAt: string
+  conversationCount: number
+}
+
+export interface ProjectMetadata {
+  projects: Project[]
+  conversationProjects: Record<string, string[]>
+}
+
+export interface SharedConversation {
+  id: string
+  title: string
+  createdAt: string
+  lastMessageAt: string | null
+}
+
+export interface SharedResponse {
+  id: string
+  userInput: string
+  response: string
+  originalMessageId: string | null
+  conversationId: string | null
+  createdAt: string
+  modelId?: string | null
+}
+
+export interface SharedItems {
+  conversations: SharedConversation[]
+  responses: SharedResponse[]
+  counts: { conversations: number; responses: number; total: number }
+}
+
 export const projectsQueryOptions = () =>
   queryOptions({
     queryKey: projectKeys.list(),
-    queryFn: async () => {
+    queryFn: async (): Promise<Project[]> => {
       const response = await fetch('/api/projects')
       if (!response.ok) {
         throw new Error('Failed to fetch projects')
       }
       return response.json()
     },
-    staleTime: 60_000, // 1 minute
+    staleTime: 5 * 60_000, // 5 minutes
+  })
+
+export const projectsMetadataQueryOptions = () =>
+  queryOptions({
+    queryKey: projectKeys.metadata(),
+    queryFn: async (): Promise<ProjectMetadata> => {
+      const response = await fetch('/api/projects/metadata')
+      if (!response.ok) {
+        throw new Error('Failed to fetch projects metadata')
+      }
+      return response.json()
+    },
+    staleTime: 5 * 60_000, // 5 minutes
+  })
+
+export const projectConversationsQueryOptions = (projectId: string) =>
+  queryOptions({
+    queryKey: projectKeys.conversations(projectId),
+    queryFn: async (): Promise<string[]> => {
+      const response = await fetch(`/api/projects/${projectId}/conversations`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch project conversations')
+      }
+      return response.json()
+    },
+    staleTime: 2 * 60_000, // 2 minutes
+  })
+
+export const sharedItemsQueryOptions = () =>
+  queryOptions({
+    queryKey: sharedKeys.items(),
+    queryFn: async (): Promise<SharedItems> => {
+      const response = await fetch('/api/share?list=true')
+      if (!response.ok) {
+        throw new Error('Failed to fetch shared items')
+      }
+      return response.json()
+    },
+    staleTime: 5 * 60_000, // 5 minutes
   })
 
 export interface ModelMetadata {

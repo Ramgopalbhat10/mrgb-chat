@@ -142,7 +142,8 @@ export const Route = createFileRoute('/api/conversations/$id/messages')({
             role: body.role as 'user' | 'assistant' | 'system' | 'tool',
             content: body.content,
             clientId: body.clientId ?? null,
-            metaJson: body.metaJson ? JSON.stringify(body.metaJson) : null,
+            // metaJson is already a JSON string from client, don't double-stringify
+            metaJson: typeof body.metaJson === 'string' ? body.metaJson : (body.metaJson ? JSON.stringify(body.metaJson) : null),
             createdAt: now,
           }
 

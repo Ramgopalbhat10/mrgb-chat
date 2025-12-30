@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,12 +42,14 @@ import {
 } from '@hugeicons/core-free-icons'
 import { useAppStore } from '@/stores/app-store'
 import type { Conversation } from '@/lib/indexeddb'
+import { projectKeys, projectsQueryOptions } from '../data/queries'
 
 interface Project {
   id: string
   name: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string
+  updatedAt: string
+  conversationCount?: number
 }
 
 interface ConversationActionsDropdownProps {
@@ -66,6 +69,7 @@ export function ConversationActionsDropdown({
   onDeleted,
   onProjectsChanged,
 }: ConversationActionsDropdownProps) {
+  const queryClient = useQueryClient()
   const [isRenameOpen, setIsRenameOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false)
@@ -73,98 +77,64 @@ export function ConversationActionsDropdown({
   const [isLoading, setIsLoading] = useState(false)
 
   // Project state
-  const [projects, setProjects] = useState<Project[]>([])
-  const [isLoadingProjects, setIsLoadingProjects] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
-  const [isCreatingProject, setIsCreatingProject] = useState(false)
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set())
-  const [isSaving, setIsSaving] = useState(false)
+  const [initialProjectIds, setInitialProjectIds] = useState<Set<string>>(new Set())
 
   const updateConversation = useAppStore((state) => state.updateConversation)
   const deleteConversation = useAppStore((state) => state.deleteConversation)
 
-  // Fetch projects when dialog opens
+  // Fetch projects using TanStack Query (cached)
+  const { data: projects = [], isLoading: isLoadingProjects } = useQuery({
+    ...projectsQueryOptions(),
+    enabled: isAddToProjectOpen,
+  })
+
+  // Fetch conversation's current project associations
+  const { data: convProjectIds = [] } = useQuery({
+    queryKey: ['conversations', conversation.id, 'projects'],
+    queryFn: async () => {
+      const res = await fetch(`/api/conversations/${conversation.id}/projects`)
+      if (!res.ok) throw new Error('Failed to fetch conversation projects')
+      return res.json() as Promise<string[]>
+    },
+    enabled: isAddToProjectOpen,
+  })
+
+  // Sync selected projects when data loads
   useEffect(() => {
-    if (isAddToProjectOpen) {
-      fetchProjects()
+    if (isAddToProjectOpen && convProjectIds.length >= 0) {
+      const set = new Set(convProjectIds)
+      setSelectedProjectIds(set)
+      setInitialProjectIds(set)
     }
-  }, [isAddToProjectOpen])
+  }, [isAddToProjectOpen, convProjectIds])
 
-  const fetchProjects = async () => {
-    setIsLoadingProjects(true)
-    try {
-      // Fetch all projects and current conversation's project associations
-      const [projectsRes, convProjectsRes] = await Promise.all([
-        fetch('/api/projects'),
-        fetch(`/api/conversations/${conversation.id}/projects`),
-      ])
-
-      if (projectsRes.ok) {
-        const data = await projectsRes.json()
-        setProjects(data)
-      }
-
-      if (convProjectsRes.ok) {
-        const projectIds = await convProjectsRes.json()
-        setSelectedProjectIds(new Set(projectIds))
-      }
-    } catch (error) {
-      console.error('Failed to fetch projects:', error)
-    } finally {
-      setIsLoadingProjects(false)
-    }
-  }
-
-  const handleCreateProject = async () => {
-    if (!newProjectName.trim()) return
-
-    setIsCreatingProject(true)
-    try {
-      const response = await fetch('/api/projects', {
+  // Create project mutation
+  const createProjectMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newProjectName.trim() }),
+        body: JSON.stringify({ name }),
       })
+      if (!res.ok) throw new Error('Failed to create project')
+      return res.json() as Promise<Project>
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.all })
+      setNewProjectName('')
+      setShowCreateProject(false)
+    },
+  })
 
-      if (response.ok) {
-        const newProject = await response.json()
-        setProjects((prev) => [newProject, ...prev])
-        setNewProjectName('')
-        setShowCreateProject(false)
-      }
-    } catch (error) {
-      console.error('Failed to create project:', error)
-    } finally {
-      setIsCreatingProject(false)
-    }
-  }
+  // Save project associations mutation
+  const saveProjectsMutation = useMutation({
+    mutationFn: async () => {
+      const toAdd = [...selectedProjectIds].filter((id) => !initialProjectIds.has(id))
+      const toRemove = [...initialProjectIds].filter((id) => !selectedProjectIds.has(id))
 
-  const handleToggleProject = (projectId: string) => {
-    setSelectedProjectIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(projectId)) {
-        next.delete(projectId)
-      } else {
-        next.add(projectId)
-      }
-      return next
-    })
-  }
-
-  const handleSaveProjects = async () => {
-    setIsSaving(true)
-    try {
-      // Get current projects for comparison
-      const currentRes = await fetch(`/api/conversations/${conversation.id}/projects`)
-      const currentProjectIds: string[] = currentRes.ok ? await currentRes.json() : []
-      const currentSet = new Set(currentProjectIds)
-
-      // Determine adds and removes
-      const toAdd = [...selectedProjectIds].filter((id) => !currentSet.has(id))
-      const toRemove = currentProjectIds.filter((id) => !selectedProjectIds.has(id))
-
-      // Execute all changes
       await Promise.all([
         ...toAdd.map((projectId) =>
           fetch(`/api/projects/${projectId}/conversations`, {
@@ -179,14 +149,35 @@ export function ConversationActionsDropdown({
           })
         ),
       ])
-
+    },
+    onSuccess: () => {
+      // Invalidate all project-related queries
+      queryClient.invalidateQueries({ queryKey: projectKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['conversations', conversation.id, 'projects'] })
       setIsAddToProjectOpen(false)
       onProjectsChanged?.()
-    } catch (error) {
-      console.error('Failed to update projects:', error)
-    } finally {
-      setIsSaving(false)
-    }
+    },
+  })
+
+  const handleCreateProject = () => {
+    if (!newProjectName.trim()) return
+    createProjectMutation.mutate(newProjectName.trim())
+  }
+
+  const handleToggleProject = (projectId: string) => {
+    setSelectedProjectIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(projectId)) {
+        next.delete(projectId)
+      } else {
+        next.add(projectId)
+      }
+      return next
+    })
+  }
+
+  const handleSaveProjects = () => {
+    saveProjectsMutation.mutate()
   }
 
   const handleRename = async () => {
@@ -372,7 +363,7 @@ export function ConversationActionsDropdown({
                       size="icon"
                       variant="default"
                       onClick={handleCreateProject}
-                      disabled={isCreatingProject || !newProjectName.trim()}
+                      disabled={createProjectMutation.isPending || !newProjectName.trim()}
                       className="text-muted-foreground hover:text-foreground"
                     >
                       <HugeiconsIcon icon={Add01Icon} size={16} strokeWidth={2} />
@@ -451,8 +442,8 @@ export function ConversationActionsDropdown({
             <Button variant="outline" onClick={() => setIsAddToProjectOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveProjects} disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save'}
+            <Button onClick={handleSaveProjects} disabled={saveProjectsMutation.isPending}>
+              {saveProjectsMutation.isPending ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>

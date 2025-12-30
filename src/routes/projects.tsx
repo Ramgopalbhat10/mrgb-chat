@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChatHeader } from '@/features/chat/components'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -34,14 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-
-interface Project {
-  id: string
-  name: string
-  createdAt: Date
-  updatedAt: Date
-  conversationCount?: number
-}
+import { projectKeys, projectsMetadataQueryOptions, type Project } from '@/features/chat/data/queries'
 
 export const Route = createFileRoute('/projects')({
   component: ProjectsPage,
@@ -49,76 +43,53 @@ export const Route = createFileRoute('/projects')({
 
 function ProjectsPage() {
   const navigate = useNavigate()
-  const [projects, setProjects] = useState<Project[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
-  const [isCreating, setIsCreating] = useState(false)
   const [deleteProject, setDeleteProject] = useState<Project | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
 
-  useEffect(() => {
-    fetchProjects()
-  }, [])
+  // Fetch projects using TanStack Query (cached)
+  const { data: metadata, isLoading } = useQuery(projectsMetadataQueryOptions())
+  const projects = metadata?.projects ?? []
 
-  const fetchProjects = async () => {
-    setIsLoading(true)
-    try {
-      // Use cached metadata endpoint
-      const response = await fetch('/api/projects/metadata')
-      if (response.ok) {
-        const data = await response.json()
-        setProjects(data.projects)
-      }
-    } catch (error) {
-      console.error('Failed to fetch projects:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleCreateProject = async () => {
-    if (!newProjectName.trim()) return
-
-    setIsCreating(true)
-    try {
-      const response = await fetch('/api/projects', {
+  // Create project mutation
+  const createMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newProjectName.trim() }),
+        body: JSON.stringify({ name }),
       })
+      if (!res.ok) throw new Error('Failed to create project')
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.all })
+      setNewProjectName('')
+      setIsCreateOpen(false)
+    },
+  })
 
-      if (response.ok) {
-        const newProject = await response.json()
-        setProjects((prev) => [newProject, ...prev])
-        setNewProjectName('')
-        setIsCreateOpen(false)
-      }
-    } catch (error) {
-      console.error('Failed to create project:', error)
-    } finally {
-      setIsCreating(false)
-    }
+  // Delete project mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/projects?id=${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to delete project')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.all })
+      setDeleteProject(null)
+    },
+  })
+
+  const handleCreateProject = () => {
+    if (!newProjectName.trim()) return
+    createMutation.mutate(newProjectName.trim())
   }
 
-  const handleDeleteProject = async () => {
+  const handleDeleteProject = () => {
     if (!deleteProject) return
-
-    setIsDeleting(true)
-    try {
-      const response = await fetch(`/api/projects?id=${deleteProject.id}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        setProjects((prev) => prev.filter((p) => p.id !== deleteProject.id))
-        setDeleteProject(null)
-      }
-    } catch (error) {
-      console.error('Failed to delete project:', error)
-    } finally {
-      setIsDeleting(false)
-    }
+    deleteMutation.mutate(deleteProject.id)
   }
 
   return (
@@ -189,9 +160,9 @@ function ProjectsPage() {
                       </div>
                     </div>
                   </div>
-                  {/* Actions dropdown */}
+                  {/* Actions dropdown - always visible on mobile */}
                   <div
-                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-3 right-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <DropdownMenu>
@@ -244,9 +215,9 @@ function ProjectsPage() {
             </Button>
             <Button
               onClick={handleCreateProject}
-              disabled={isCreating || !newProjectName.trim()}
+              disabled={createMutation.isPending || !newProjectName.trim()}
             >
-              {isCreating ? 'Creating...' : 'Create'}
+              {createMutation.isPending ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -271,7 +242,7 @@ function ProjectsPage() {
               onClick={handleDeleteProject}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

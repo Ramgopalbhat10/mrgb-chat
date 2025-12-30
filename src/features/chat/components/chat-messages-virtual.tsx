@@ -1,4 +1,4 @@
-import { Share01Icon, Download01Icon, Copy01Icon, Refresh01Icon, Tick01Icon, Link01Icon, LockIcon, Globe02Icon, Loading03Icon } from '@hugeicons/core-free-icons'
+import { Share01Icon, Download01Icon, Copy01Icon, Refresh01Icon, Tick01Icon, LockIcon, Globe02Icon, Loading03Icon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useState, useRef, useEffect, useCallback } from 'react'
@@ -417,7 +417,7 @@ export function ChatMessagesVirtual({
                               tooltip="Regenerate" 
                             />
                             <MessageAction 
-                              icon={sharedMessageMap?.has(message.id) ? Link01Icon : Share01Icon}
+                              icon={sharedMessageMap?.has(message.id) ? Globe02Icon : Share01Icon}
                               iconClassName={sharedMessageMap?.has(message.id) ? "text-emerald-500 hover:text-emerald-400" : undefined}
                               onClick={() => {
                                 // Find the user message before this assistant message

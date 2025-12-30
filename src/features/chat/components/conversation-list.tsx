@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  Message01Icon,
+  BubbleChatIcon,
   StarIcon,
   Folder01Icon,
   Add01Icon,
@@ -210,7 +210,7 @@ export function ConversationList({
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-4">
             <HugeiconsIcon
-              icon={Message01Icon}
+              icon={BubbleChatIcon}
               size={24}
               strokeWidth={2}
               className="text-muted-foreground"
@@ -261,7 +261,7 @@ export function ConversationList({
                       </div>
                     ) : (
                       <HugeiconsIcon
-                        icon={Message01Icon}
+                        icon={BubbleChatIcon}
                         size={16}
                         strokeWidth={2}
                         className="text-muted-foreground/60 shrink-0 mt-0.5"

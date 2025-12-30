@@ -12,7 +12,7 @@ import { useSidebar } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { SidebarLeftIcon } from '@hugeicons/core-free-icons'
-import { availableModelsQueryOptions } from '@/features/chat/data/queries'
+import { availableModelsQueryOptions, sharedItemsQueryOptions, sharedKeys } from '@/features/chat/data/queries'
 import * as db from '@/lib/indexeddb'
 import type { UIMessage } from 'ai'
 import type { ModelMetadata } from '@/features/chat/data/queries'
@@ -45,15 +45,7 @@ export function ChatView({
   const titleIsLoading = titleLoadingIds.has(conversationId)
 
   // Fetch shared items to show indicator on shared messages
-  const { data: sharedData } = useQuery({
-    queryKey: ['shared-items'],
-    queryFn: async () => {
-      const res = await fetch('/api/share?list=true')
-      if (!res.ok) return { responses: [], conversations: [] }
-      return res.json()
-    },
-    staleTime: 30000,
-  })
+  const { data: sharedData } = useQuery(sharedItemsQueryOptions())
   
   // Create a Map of originalMessageId -> shareId for quick lookup and correct URLs
   const sharedMessageMap = useMemo((): Map<string, string> => {
@@ -220,7 +212,7 @@ export function ChatView({
       
       const data = await res.json()
       // Refetch shared items to update the map
-      queryClient.invalidateQueries({ queryKey: ['shared-items'] })
+      queryClient.invalidateQueries({ queryKey: sharedKeys.items() })
       return data.url
     } catch (error) {
       console.error('Error sharing message:', error)
@@ -241,7 +233,7 @@ export function ChatView({
       }
       
       // Refetch shared items to update the map
-      queryClient.invalidateQueries({ queryKey: ['shared-items'] })
+      queryClient.invalidateQueries({ queryKey: sharedKeys.items() })
       return true
     } catch (error) {
       console.error('Error unsharing message:', error)

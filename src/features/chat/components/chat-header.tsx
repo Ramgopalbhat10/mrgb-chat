@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { sharedKeys } from '@/features/chat/data/queries'
 import { Button } from '@/components/ui/button'
 import { useSidebar } from '@/components/ui/sidebar'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -30,6 +32,7 @@ export function ChatHeader({
   showShare = false,
 }: ChatHeaderProps) {
   const { state, toggleSidebar, isMobile } = useSidebar()
+  const queryClient = useQueryClient()
   // Show toggle on mobile (always, since sidebar is a sheet) or desktop when collapsed
   const showToggle = isMobile || state === 'collapsed'
   const [isShareOpen, setIsShareOpen] = useState(false)
@@ -58,6 +61,8 @@ export function ChatHeader({
       if (response.ok) {
         // Update local conversation state if needed
         conversation.isPublic = isPublic
+        // Invalidate shared items query to update the list
+        queryClient.invalidateQueries({ queryKey: sharedKeys.all })
       }
     } catch (error) {
       console.error('Failed to update share status:', error)
