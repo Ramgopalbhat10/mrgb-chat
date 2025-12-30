@@ -1,15 +1,15 @@
 import { redis } from './redis'
-import { cacheKeys, CACHE_TTL, invalidationKeys } from './keys'
+import { 
+  cacheKeys, 
+  CACHE_TTL, 
+  invalidationKeys,
+  type ConversationTitle,
+  type CachedProject,
+  type CachedSharedItems,
+} from './keys'
 
-// Lightweight conversation title for sidebar
-export interface ConversationTitle {
-  id: string
-  title: string
-  lastMessageAt: string | null // ISO string
-  starred?: boolean
-  archived?: boolean
-  isPublic?: boolean
-}
+// Re-export types from keys for convenience
+export type { ConversationTitle, CachedProject, CachedSharedItems }
 
 // Message preview: first user message + assistant response
 export interface MessagePreview {
@@ -122,4 +122,96 @@ export async function invalidateOnNewMessage(
 
 export async function invalidateOnTitleGenerated(): Promise<void> {
   await invalidateCache(invalidationKeys.onTitleGenerated())
+}
+
+export async function invalidateOnProjectChange(): Promise<void> {
+  await invalidateCache(invalidationKeys.onProjectChange())
+}
+
+export async function invalidateOnSharedItemChange(): Promise<void> {
+  await invalidateCache(invalidationKeys.onSharedItemChange())
+}
+
+// ============================================
+// Project caching
+// ============================================
+
+export async function getCachedProjects(): Promise<CachedProject[] | null> {
+  if (!redis) return null
+
+  try {
+    const cached = await redis.get<CachedProject[]>(cacheKeys.projectList())
+    return cached
+  } catch (error) {
+    console.error('Redis get error (projects):', error)
+    return null
+  }
+}
+
+export async function setCachedProjects(projects: CachedProject[]): Promise<void> {
+  if (!redis) return
+
+  try {
+    await redis.set(cacheKeys.projectList(), projects, {
+      ex: CACHE_TTL.PROJECT_LIST,
+    })
+  } catch (error) {
+    console.error('Redis set error (projects):', error)
+  }
+}
+
+// ============================================
+// Shared items caching
+// ============================================
+
+export async function getCachedSharedItems(): Promise<CachedSharedItems | null> {
+  if (!redis) return null
+
+  try {
+    const cached = await redis.get<CachedSharedItems>(cacheKeys.sharedItems())
+    return cached
+  } catch (error) {
+    console.error('Redis get error (shared items):', error)
+    return null
+  }
+}
+
+export async function setCachedSharedItems(items: CachedSharedItems): Promise<void> {
+  if (!redis) return
+
+  try {
+    await redis.set(cacheKeys.sharedItems(), items, {
+      ex: CACHE_TTL.SHARED_ITEMS,
+    })
+  } catch (error) {
+    console.error('Redis set error (shared items):', error)
+  }
+}
+
+// ============================================
+// Cache version for ETag-like validation
+// ============================================
+
+export async function getCacheVersion(): Promise<number> {
+  if (!redis) return 0
+
+  try {
+    const version = await redis.get<number>(cacheKeys.cacheVersion())
+    return version ?? 0
+  } catch (error) {
+    console.error('Redis get error (cache version):', error)
+    return 0
+  }
+}
+
+export async function incrementCacheVersion(): Promise<number> {
+  if (!redis) return 0
+
+  try {
+    const newVersion = await redis.incr(cacheKeys.cacheVersion())
+    return newVersion
+  } catch (error) {
+    console.error('Redis incr error (cache version):', error)
+    return 0
+  }
 }

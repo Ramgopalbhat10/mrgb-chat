@@ -114,12 +114,13 @@ export function ChatInput({
             className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none p-2 min-h-[40px]"
           />
           <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-2 px-1">
-            <div className="flex items-center gap-1">
+            {/* Left side controls - stack on mobile */}
+            <div className="flex items-center gap-1 flex-wrap min-w-0">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground"
+                className="h-8 w-8 shrink-0 text-muted-foreground"
               >
                 <HugeiconsIcon icon={Attachment01Icon} size={18} strokeWidth={2} />
               </Button>
@@ -131,20 +132,32 @@ export function ChatInput({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 gap-1.5 text-muted-foreground"
+                className="h-8 gap-1.5 shrink-0 text-muted-foreground hidden sm:flex"
               >
                 <HugeiconsIcon icon={GlobalIcon} size={16} strokeWidth={2} />
                 <span className="text-xs font-medium">Search</span>
               </Button>
+              {/* Mobile: icon only */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground sm:hidden"
+              >
+                <HugeiconsIcon icon={GlobalIcon} size={16} strokeWidth={2} />
+              </Button>
             </div>
-            <div className="flex items-center gap-2">
-              <ContextUsage used={tokenCount} total={contextWindow} />
+            {/* Right side - context usage and send */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="hidden sm:block">
+                <ContextUsage used={tokenCount} total={contextWindow} />
+              </div>
               <Button
                 type="submit"
                 disabled={isLoading || !input.trim()}
                 size="icon"
                 variant="default"
-                className="h-8 w-8 text-foreground bg-primary disabled:opacity-30 rounded-lg"
+                className="h-8 w-8 shrink-0 text-foreground bg-primary disabled:opacity-30 rounded-lg"
               >
                 <HugeiconsIcon icon={SentIcon} size={18} strokeWidth={2} />
               </Button>

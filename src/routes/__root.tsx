@@ -75,6 +75,7 @@ function AuthenticatedLayout() {
     (state) => state.activeConversationId,
   )
   const hydrate = useAppStore((state) => state.hydrate)
+  const checkAndSync = useAppStore((state) => state.checkAndSync)
   const handleNewChat = useAppStore((state) => state.handleNewChat)
   const setActiveConversationId = useAppStore(
     (state) => state.setActiveConversationId,
@@ -89,6 +90,22 @@ function AuthenticatedLayout() {
   useEffect(() => {
     hydrate()
   }, [hydrate])
+
+  // Cross-device sync: check for changes when tab becomes visible
+  useEffect(() => {
+    if (isPublicPage || !isAuthenticated) return
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkAndSync()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [checkAndSync, isPublicPage, isAuthenticated])
 
   // Redirect to login if not authenticated (except on public pages)
   useEffect(() => {

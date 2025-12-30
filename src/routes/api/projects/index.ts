@@ -4,7 +4,13 @@ import { desc, eq, sql } from 'drizzle-orm'
 import { db } from '@/server/db'
 import { projects, conversationProjects } from '@/server/db/schema'
 import { getSession } from '@/server/auth/get-session'
-import { invalidateProjectsMetadata } from '@/server/cache/redis'
+import { 
+  getCachedProjects, 
+  setCachedProjects, 
+  invalidateOnProjectChange,
+  incrementCacheVersion,
+  type CachedProject,
+} from '@/server/cache'
 
 export const Route = createFileRoute('/api/projects/')({
   server: {
@@ -17,6 +23,12 @@ export const Route = createFileRoute('/api/projects/')({
         }
 
         try {
+          // Try Redis cache first
+          const cached = await getCachedProjects()
+          if (cached) {
+            return Response.json(cached)
+          }
+
           // Get projects with conversation counts using a subquery
           const result = await db
             .select({
@@ -32,7 +44,19 @@ export const Route = createFileRoute('/api/projects/')({
             .from(projects)
             .orderBy(desc(projects.updatedAt))
 
-          return Response.json(result)
+          // Transform for cache (dates to ISO strings)
+          const cacheData: CachedProject[] = result.map((p) => ({
+            id: p.id,
+            name: p.name,
+            createdAt: p.createdAt.toISOString(),
+            updatedAt: p.updatedAt.toISOString(),
+            conversationCount: Number(p.conversationCount),
+          }))
+
+          // Cache the result
+          await setCachedProjects(cacheData)
+
+          return Response.json(cacheData)
         } catch (error) {
           console.error('Failed to fetch projects:', error)
           return new Response('Failed to fetch projects', { status: 500 })
@@ -60,8 +84,9 @@ export const Route = createFileRoute('/api/projects/')({
 
           await db.insert(projects).values(newProject)
 
-          // Invalidate cache
-          await invalidateProjectsMetadata()
+          // Invalidate cache and increment version
+          await invalidateOnProjectChange()
+          await incrementCacheVersion()
 
           return Response.json(newProject, { status: 201 })
         } catch (error) {
@@ -88,8 +113,9 @@ export const Route = createFileRoute('/api/projects/')({
           // Delete project (conversation_projects will cascade)
           await db.delete(projects).where(eq(projects.id, projectId))
 
-          // Invalidate cache
-          await invalidateProjectsMetadata()
+          // Invalidate cache and increment version
+          await invalidateOnProjectChange()
+          await incrementCacheVersion()
 
           return new Response(null, { status: 204 })
         } catch (error) {

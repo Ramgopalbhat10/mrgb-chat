@@ -7,6 +7,7 @@ import {
   getCachedConversationTitles,
   setCachedConversationTitles,
   invalidateOnConversationCreate,
+  incrementCacheVersion,
   type ConversationTitle,
 } from '@/server/cache'
 import { requireAuth } from '@/server/auth/get-session'
@@ -177,8 +178,9 @@ export const Route = createFileRoute('/api/conversations/')({
             .values(newConversation)
             .onConflictDoNothing({ target: conversations.id })
 
-          // Invalidate cache
+          // Invalidate cache and increment version for cross-device sync
           await invalidateOnConversationCreate()
+          await incrementCacheVersion()
 
           return Response.json(newConversation, { status: 201 })
         } catch (error) {

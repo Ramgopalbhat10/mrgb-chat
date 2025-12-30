@@ -10,8 +10,13 @@ import {
   Message01Icon,
   Link01Icon,
   LockIcon,
-  MoreHorizontalIcon,
 } from '@hugeicons/core-free-icons'
+import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,13 +27,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 
 interface SharedConversation {
   id: string
@@ -214,52 +212,55 @@ function SharedPage() {
                     {sharedData.counts.conversations} conversation{sharedData.counts.conversations !== 1 ? 's' : ''}
                   </span>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-2">
                   {sharedData.conversations.map((conv) => (
                     <div
                       key={conv.id}
-                      className="group p-4 rounded-lg border border-border/60 bg-card/50 hover:bg-accent/30 cursor-pointer transition-colors relative"
+                      className="group flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card/50 hover:bg-accent/30 cursor-pointer transition-colors"
                       onClick={() => handleNavigateToSource(conv.id, null)}
                     >
-                      <div className="flex items-start gap-3">
-                        <HugeiconsIcon
-                          icon={Globe02Icon}
-                          size={18}
-                          strokeWidth={2}
-                          className="text-muted-foreground/70 shrink-0 mt-0.5"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-sm text-foreground truncate pr-8">
-                            {conv.title}
-                          </h3>
-                          <div className="text-xs text-muted-foreground/70 mt-1">
-                            {new Date(conv.createdAt).toLocaleDateString()}
-                          </div>
+                      <HugeiconsIcon
+                        icon={Globe02Icon}
+                        size={18}
+                        strokeWidth={2}
+                        className="text-muted-foreground/70 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm text-foreground truncate">
+                          {conv.title}
+                        </h3>
+                        <div className="text-xs text-muted-foreground/70 mt-0.5">
+                          {new Date(conv.createdAt).toLocaleDateString()}
                         </div>
                       </div>
-                      {/* Actions dropdown */}
-                      <div
-                        className="absolute top-3 right-3"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <DropdownMenu>
-                          <DropdownMenuTrigger className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent">
-                            <HugeiconsIcon icon={MoreHorizontalIcon} size={16} strokeWidth={2} />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="min-w-[160px]">
-                            <DropdownMenuItem onClick={() => handleOpenPublicLink(conv.id, 'conversation')}>
-                              <HugeiconsIcon icon={Link01Icon} size={14} strokeWidth={2} />
-                              <span>Open public link</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
+                      {/* Inline action icons */}
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Tooltip>
+                          <TooltipTrigger render={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              onClick={() => handleOpenPublicLink(conv.id, 'conversation')}
+                            >
+                              <HugeiconsIcon icon={Link01Icon} size={16} strokeWidth={2} />
+                            </Button>
+                          } />
+                          <TooltipContent side="bottom">Open public link</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger render={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
                               onClick={() => setDeleteItem({ id: conv.id, type: 'conversation' })}
                             >
-                              <HugeiconsIcon icon={LockIcon} size={14} strokeWidth={2} />
-                              <span>Make private</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              <HugeiconsIcon icon={LockIcon} size={16} strokeWidth={2} />
+                            </Button>
+                          } />
+                          <TooltipContent side="bottom">Make private</TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
                   ))}
@@ -281,52 +282,55 @@ function SharedPage() {
                     {sharedData.counts.responses} response{sharedData.counts.responses !== 1 ? 's' : ''}
                   </span>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-2">
                   {sharedData.responses.map((item) => (
                     <div
                       key={item.id}
-                      className="group p-4 rounded-lg border border-border/60 bg-card/50 hover:bg-accent/30 cursor-pointer transition-colors relative"
+                      className="group flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card/50 hover:bg-accent/30 cursor-pointer transition-colors"
                       onClick={() => item.conversationId && handleNavigateToSource(item.conversationId, item.originalMessageId)}
                     >
-                      <div className="flex items-start gap-3">
-                        <HugeiconsIcon
-                          icon={Message01Icon}
-                          size={18}
-                          strokeWidth={2}
-                          className="text-muted-foreground/70 shrink-0 mt-0.5"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-sm text-foreground truncate pr-8">
-                            {item.userInput}
-                          </h3>
-                          <div className="text-xs text-muted-foreground/70 mt-1">
-                            {new Date(item.createdAt).toLocaleDateString()}
-                          </div>
+                      <HugeiconsIcon
+                        icon={Message01Icon}
+                        size={18}
+                        strokeWidth={2}
+                        className="text-muted-foreground/70 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm text-foreground truncate">
+                          {item.userInput}
+                        </h3>
+                        <div className="text-xs text-muted-foreground/70 mt-0.5">
+                          {new Date(item.createdAt).toLocaleDateString()}
                         </div>
                       </div>
-                      {/* Actions dropdown */}
-                      <div
-                        className="absolute top-3 right-3"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <DropdownMenu>
-                          <DropdownMenuTrigger className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent">
-                            <HugeiconsIcon icon={MoreHorizontalIcon} size={16} strokeWidth={2} />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="min-w-[160px]">
-                            <DropdownMenuItem onClick={() => handleOpenPublicLink(item.id, 'response')}>
-                              <HugeiconsIcon icon={Link01Icon} size={14} strokeWidth={2} />
-                              <span>Open public link</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
+                      {/* Inline action icons */}
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <Tooltip>
+                          <TooltipTrigger render={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              onClick={() => handleOpenPublicLink(item.id, 'response')}
+                            >
+                              <HugeiconsIcon icon={Link01Icon} size={16} strokeWidth={2} />
+                            </Button>
+                          } />
+                          <TooltipContent side="bottom">Open public link</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger render={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
                               onClick={() => setDeleteItem({ id: item.id, type: 'response' })}
                             >
-                              <HugeiconsIcon icon={LockIcon} size={14} strokeWidth={2} />
-                              <span>Make private</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              <HugeiconsIcon icon={LockIcon} size={16} strokeWidth={2} />
+                            </Button>
+                          } />
+                          <TooltipContent side="bottom">Make private</TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
                   ))}

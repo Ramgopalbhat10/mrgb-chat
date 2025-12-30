@@ -129,7 +129,12 @@ function MessageAction({
 }
 
 // Extract usage from UIMessage metadata (AI SDK v5 uses message.metadata)
-function getMessageUsage(message: UIMessage): MessageUsage | undefined {
+interface MessageMeta {
+  usage?: MessageUsage
+  modelId?: string
+}
+
+function getMessageMeta(message: UIMessage): MessageMeta | undefined {
   const msg = message as any
   
   // AI SDK v5: Usage data is in message.metadata (set via messageMetadata callback)
@@ -146,7 +151,10 @@ function getMessageUsage(message: UIMessage): MessageUsage | undefined {
       usage.gatewayCost = msg.metadata.gatewayCost
     }
     
-    return usage
+    return {
+      usage,
+      modelId: msg.metadata.model, // Model ID from API response
+    }
   }
   
   return undefined
@@ -370,10 +378,15 @@ export function ChatMessagesVirtual({
                         </div>
                         {!isStreaming && (
                           <div className="flex items-center gap-0.5">
-                            <MessageUsageIndicator 
-                              usage={getMessageUsage(message)}
-                              modelId={modelId}
-                            />
+                            {(() => {
+                              const meta = getMessageMeta(message)
+                              return (
+                                <MessageUsageIndicator 
+                                  usage={meta?.usage}
+                                  modelId={meta?.modelId || modelId}
+                                />
+                              )
+                            })()}
                             <MessageAction 
                               icon={Copy01Icon} 
                               successIcon={Tick01Icon}

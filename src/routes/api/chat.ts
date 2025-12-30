@@ -45,7 +45,7 @@ export const Route = createFileRoute('/api/chat')({
                 metadata.generationId = providerMeta.gateway.generationId
               }
               
-              console.log('Sending message metadata:', metadata)
+              // console.log('Sending message metadata:', metadata)
               return metadata
             }
             return undefined

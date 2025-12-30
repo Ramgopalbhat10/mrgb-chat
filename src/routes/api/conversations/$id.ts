@@ -2,10 +2,11 @@ import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 
 import { db } from '@/server/db'
-import { conversations, messages } from '@/server/db/schema'
+import { conversations, messages, sharedMessages } from '@/server/db/schema'
 import {
   invalidateOnConversationUpdate,
   invalidateOnConversationDelete,
+  incrementCacheVersion,
 } from '@/server/cache'
 import { requireAuth } from '@/server/auth/get-session'
 
@@ -57,8 +58,9 @@ export const Route = createFileRoute('/api/conversations/$id')({
             .set(updates)
             .where(eq(conversations.id, params.id))
 
-          // Invalidate cache
+          // Invalidate cache and increment version for cross-device sync
           await invalidateOnConversationUpdate(params.id)
+          await incrementCacheVersion()
 
           const result = await db
             .select()
@@ -83,14 +85,22 @@ export const Route = createFileRoute('/api/conversations/$id')({
         if (!auth.authorized) return auth.response
 
         try {
-          // Messages will be cascade deleted due to foreign key constraint
+          // Delete shared messages associated with this conversation
+          await db
+            .delete(sharedMessages)
+            .where(eq(sharedMessages.conversationId, params.id))
+          
+          // Delete messages (also has cascade, but explicit is clearer)
           await db
             .delete(messages)
             .where(eq(messages.conversationId, params.id))
+          
+          // Delete the conversation
           await db.delete(conversations).where(eq(conversations.id, params.id))
 
-          // Invalidate cache
+          // Invalidate all related caches and increment version for cross-device sync
           await invalidateOnConversationDelete(params.id)
+          await incrementCacheVersion()
 
           return new Response(null, { status: 204 })
         } catch (error) {

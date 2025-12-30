@@ -1,5 +1,6 @@
 export { redis } from './redis'
 export { cacheKeys, CACHE_TTL, invalidationKeys } from './keys'
+export type { CachedProject, CachedSharedItems } from './keys'
 export {
   type ConversationTitle,
   type MessagePreview,
@@ -13,4 +14,12 @@ export {
   invalidateOnConversationDelete,
   invalidateOnNewMessage,
   invalidateOnTitleGenerated,
+  invalidateOnProjectChange,
+  invalidateOnSharedItemChange,
+  getCachedProjects,
+  setCachedProjects,
+  getCachedSharedItems,
+  setCachedSharedItems,
+  getCacheVersion,
+  incrementCacheVersion,
 } from './conversations'

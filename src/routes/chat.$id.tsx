@@ -99,12 +99,32 @@ function ChatPage() {
           }
         }
         
-        const uiMessages: UIMessage[] = dbMessages.map((msg) => ({
-          id: msg.id,
-          role: msg.role as 'user' | 'assistant',
-          parts: [{ type: 'text' as const, text: msg.content }],
-          createdAt: msg.createdAt,
-        }))
+        const uiMessages: UIMessage[] = dbMessages.map((msg) => {
+          // Parse metaJson to restore usage metadata
+          let metadata: any = undefined
+          if (msg.metaJson) {
+            try {
+              const parsed = JSON.parse(msg.metaJson)
+              if (parsed.usage) {
+                metadata = { 
+                  usage: parsed.usage, 
+                  model: parsed.modelId, // Use 'model' to match API response format
+                  gatewayCost: parsed.gatewayCost, // gatewayCost is stored at root level
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to parse metaJson:', e)
+            }
+          }
+          
+          return {
+            id: msg.id,
+            role: msg.role as 'user' | 'assistant',
+            parts: [{ type: 'text' as const, text: msg.content }],
+            createdAt: msg.createdAt,
+            metadata,
+          }
+        })
         setInitialMessages(uiMessages)
       } catch (error) {
         console.error('Failed to load messages:', error)

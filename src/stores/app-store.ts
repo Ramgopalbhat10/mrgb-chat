@@ -16,9 +16,11 @@ interface AppState {
   messages: Record<string, Message[]> // conversationId -> messages
   isHydrated: boolean
   titleLoadingIds: Set<string> // conversation IDs currently generating titles
+  lastKnownCacheVersion: number // For cross-device sync
 
   // Actions
   hydrate: () => Promise<void>
+  checkAndSync: () => Promise<boolean> // Returns true if sync was needed
 
   // Conversation actions
   setActiveConversationId: (id: string | null) => void
@@ -54,6 +56,7 @@ export const useAppStore = create<AppState>()(
     messages: {},
     isHydrated: false,
     titleLoadingIds: new Set<string>(),
+    lastKnownCacheVersion: 0,
 
     // Selector for title loading
     isTitleLoading: (conversationId: string) => {
@@ -104,7 +107,9 @@ export const useAppStore = create<AppState>()(
               }),
             )
 
-            // Merge: server is source of truth for titles/starred/archived/isPublic, keep local for other fields
+            // Server is source of truth - merge server data with local metadata
+            const serverIds = new Set(serverConversations.map((c) => c.id))
+            
             const mergedConversations = serverConversations.map((serverConv) => {
               const localConv = localConversations.find((c) => c.id === serverConv.id)
               return localConv
@@ -119,28 +124,36 @@ export const useAppStore = create<AppState>()(
                 : serverConv
             })
 
-            // Add any local-only conversations (not yet synced to server)
-            const serverIds = new Set(serverConversations.map((c) => c.id))
-            const localOnly = localConversations.filter((c) => !serverIds.has(c.id))
-
-            const finalConversations = [...mergedConversations, ...localOnly].sort(
+            // Sort by lastMessageAt descending
+            const finalConversations = mergedConversations.sort(
               (a, b) =>
                 (b.lastMessageAt?.getTime() ?? 0) - (a.lastMessageAt?.getTime() ?? 0),
             )
 
             set({ conversations: finalConversations })
 
-            // Sync server data back to IndexedDB for offline support
+            // Sync IndexedDB with server state:
+            // 1. Update/create server conversations in IndexedDB
             for (const conv of serverConversations) {
               const existing = await db.getConversation(conv.id)
               if (existing) {
                 await db.updateConversation(conv.id, {
                   title: conv.title,
                   lastMessageAt: conv.lastMessageAt,
+                  starred: conv.starred,
+                  archived: conv.archived,
+                  isPublic: conv.isPublic,
                 })
               } else {
                 await db.createConversation(conv)
               }
+            }
+            
+            // 2. Remove local conversations that no longer exist on server
+            // This ensures cross-device sync when conversations are deleted elsewhere
+            const localOnly = localConversations.filter((c) => !serverIds.has(c.id))
+            for (const conv of localOnly) {
+              await db.deleteConversation(conv.id)
             }
           }
         } catch (serverError) {
@@ -152,6 +165,107 @@ export const useAppStore = create<AppState>()(
         set({
           isHydrated: true,
         })
+      }
+    },
+
+    // Check cache version and sync if needed (for cross-device sync)
+    checkAndSync: async () => {
+      if (typeof window === 'undefined') return false
+
+      try {
+        const response = await fetch('/api/cache-version')
+        if (!response.ok) return false
+
+        const { version } = await response.json()
+        const { lastKnownCacheVersion } = get()
+
+        // If version changed, trigger a full re-sync
+        if (version !== lastKnownCacheVersion) {
+          set({ lastKnownCacheVersion: version })
+
+          // Re-fetch conversations from server
+          const convResponse = await fetch('/api/conversations')
+          if (convResponse.ok) {
+            const data = await convResponse.json()
+            const serverTitles = Array.isArray(data)
+              ? data
+              : data.conversations || []
+
+            const serverConversations: Conversation[] = serverTitles.map(
+              (t: {
+                id: string
+                title: string
+                lastMessageAt: string | null
+                starred?: boolean
+                archived?: boolean
+                isPublic?: boolean
+              }) => ({
+                id: t.id,
+                title: t.title,
+                starred: t.starred ?? false,
+                archived: t.archived ?? false,
+                isPublic: t.isPublic ?? false,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                lastMessageAt: t.lastMessageAt ? new Date(t.lastMessageAt) : null,
+              }),
+            )
+
+            const serverIds = new Set(serverConversations.map((c) => c.id))
+            const { conversations: localConversations } = get()
+
+            // Merge with local data
+            const mergedConversations = serverConversations.map((serverConv) => {
+              const localConv = localConversations.find((c) => c.id === serverConv.id)
+              return localConv
+                ? {
+                    ...localConv,
+                    title: serverConv.title,
+                    lastMessageAt: serverConv.lastMessageAt,
+                    starred: serverConv.starred,
+                    archived: serverConv.archived,
+                    isPublic: serverConv.isPublic,
+                  }
+                : serverConv
+            })
+
+            const finalConversations = mergedConversations.sort(
+              (a, b) =>
+                (b.lastMessageAt?.getTime() ?? 0) - (a.lastMessageAt?.getTime() ?? 0),
+            )
+
+            set({ conversations: finalConversations })
+
+            // Sync IndexedDB - update/create server conversations
+            for (const conv of serverConversations) {
+              const existing = await db.getConversation(conv.id)
+              if (existing) {
+                await db.updateConversation(conv.id, {
+                  title: conv.title,
+                  lastMessageAt: conv.lastMessageAt,
+                  starred: conv.starred,
+                  archived: conv.archived,
+                  isPublic: conv.isPublic,
+                })
+              } else {
+                await db.createConversation(conv)
+              }
+            }
+
+            // Remove local conversations that no longer exist on server
+            const localOnly = localConversations.filter((c) => !serverIds.has(c.id))
+            for (const conv of localOnly) {
+              await db.deleteConversation(conv.id)
+            }
+          }
+
+          return true // Sync was needed
+        }
+
+        return false // No sync needed
+      } catch (error) {
+        console.error('Failed to check cache version:', error)
+        return false
       }
     },
 

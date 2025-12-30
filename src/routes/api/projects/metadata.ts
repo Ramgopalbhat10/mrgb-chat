@@ -4,7 +4,7 @@ import { desc, sql } from 'drizzle-orm'
 import { db } from '@/server/db'
 import { projects, conversationProjects } from '@/server/db/schema'
 import { getSession } from '@/server/auth/get-session'
-import { redis, CACHE_KEYS, CACHE_TTL } from '@/server/cache/redis'
+import { redis, cacheKeys, CACHE_TTL } from '@/server/cache'
 
 interface ProjectMetadata {
   projects: Array<{
@@ -30,7 +30,7 @@ export const Route = createFileRoute('/api/projects/metadata')({
         try {
           // Try to get from cache first
           if (redis) {
-            const cached = await redis.get<ProjectMetadata>(CACHE_KEYS.PROJECTS_METADATA)
+            const cached = await redis.get<ProjectMetadata>(cacheKeys.projectMetadata())
             if (cached) {
               return Response.json(cached)
             }
@@ -75,8 +75,8 @@ export const Route = createFileRoute('/api/projects/metadata')({
 
           // Cache the result
           if (redis) {
-            await redis.set(CACHE_KEYS.PROJECTS_METADATA, metadata, {
-              ex: CACHE_TTL.PROJECTS_METADATA,
+            await redis.set(cacheKeys.projectMetadata(), metadata, {
+              ex: CACHE_TTL.PROJECT_LIST,
             })
           }
 

@@ -3,6 +3,13 @@ import { db } from '@/server/db/drizzle'
 import { sharedMessages, conversations } from '@/server/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { requireAuth } from '@/server/auth/get-session'
+import {
+  getCachedSharedItems,
+  setCachedSharedItems,
+  invalidateOnSharedItemChange,
+  incrementCacheVersion,
+  type CachedSharedItems,
+} from '@/server/cache'
 
 export const Route = createFileRoute('/api/share')({
   server: {
@@ -32,6 +39,10 @@ export const Route = createFileRoute('/api/share')({
             response,
             modelId: modelId || null,
           })
+
+          // Invalidate cache and increment version
+          await invalidateOnSharedItemChange()
+          await incrementCacheVersion()
 
           const shareUrl = `${new URL(request.url).origin}/s/${id}`
 
@@ -66,6 +77,10 @@ export const Route = createFileRoute('/api/share')({
 
           await db.delete(sharedMessages).where(eq(sharedMessages.id, id))
 
+          // Invalidate cache and increment version
+          await invalidateOnSharedItemChange()
+          await incrementCacheVersion()
+
           return new Response(
             JSON.stringify({ success: true }),
             { headers: { 'Content-Type': 'application/json' } }
@@ -91,6 +106,22 @@ export const Route = createFileRoute('/api/share')({
             const auth = await requireAuth(request)
             if (!auth.authorized) return auth.response
 
+            // Try Redis cache first
+            const cached = await getCachedSharedItems()
+            if (cached) {
+              return new Response(
+                JSON.stringify({
+                  ...cached,
+                  counts: {
+                    responses: cached.responses.length,
+                    conversations: cached.conversations.length,
+                    total: cached.responses.length + cached.conversations.length,
+                  },
+                }),
+                { headers: { 'Content-Type': 'application/json' } }
+              )
+            }
+
             // Get shared responses from sharedMessages table
             const sharedResponses = await db
               .select()
@@ -104,28 +135,48 @@ export const Route = createFileRoute('/api/share')({
               .where(eq(conversations.isPublic, true))
               .orderBy(desc(conversations.updatedAt))
 
-            // Transform public conversations to match shared item format
+            // Transform public conversations for cache
             const conversationItems = publicConversations.map(conv => ({
               id: conv.id,
-              type: 'conversation' as const,
               title: conv.title,
-              conversationId: conv.id,
-              originalMessageId: null,
-              createdAt: conv.createdAt,
-              updatedAt: conv.updatedAt,
+              createdAt: conv.createdAt.toISOString(),
+              lastMessageAt: conv.lastMessageAt?.toISOString() || null,
             }))
 
-            // Transform shared responses
+            // Transform shared responses for cache
             const responseItems = sharedResponses.map(item => ({
-              ...item,
-              type: 'response' as const,
-              title: item.userInput?.slice(0, 100) || 'Shared response',
+              id: item.id,
+              userInput: item.userInput,
+              response: item.response,
+              originalMessageId: item.originalMessageId,
+              conversationId: item.conversationId,
+              createdAt: item.createdAt.toISOString(),
             }))
 
+            // Cache the result
+            const cacheData: CachedSharedItems = {
+              conversations: conversationItems,
+              responses: responseItems,
+            }
+            await setCachedSharedItems(cacheData)
+
+            // Return with additional fields for API compatibility
             return new Response(
               JSON.stringify({
-                conversations: conversationItems,
-                responses: responseItems,
+                conversations: publicConversations.map(conv => ({
+                  id: conv.id,
+                  type: 'conversation' as const,
+                  title: conv.title,
+                  conversationId: conv.id,
+                  originalMessageId: null,
+                  createdAt: conv.createdAt,
+                  updatedAt: conv.updatedAt,
+                })),
+                responses: sharedResponses.map(item => ({
+                  ...item,
+                  type: 'response' as const,
+                  title: item.userInput?.slice(0, 100) || 'Shared response',
+                })),
                 counts: {
                   responses: responseItems.length,
                   conversations: conversationItems.length,

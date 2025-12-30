@@ -1,11 +1,12 @@
+import { useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { CoinsIcon } from '@hugeicons/core-free-icons'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 
 export interface MessageUsage {
   // AI SDK uses these field names
@@ -48,9 +49,11 @@ export function MessageUsageIndicator({ usage, modelId }: MessageUsageProps) {
     return `$${c.toFixed(3)}`
   }
 
+  const [open, setOpen] = useState(false)
+
   return (
-    <Tooltip>
-      <TooltipTrigger render={
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger render={
         <Button
           variant="ghost"
           size="icon"
@@ -59,7 +62,7 @@ export function MessageUsageIndicator({ usage, modelId }: MessageUsageProps) {
           <HugeiconsIcon icon={CoinsIcon} size={15} strokeWidth={2} />
         </Button>
       } />
-      <TooltipContent 
+      <PopoverContent 
         side="bottom" 
         sideOffset={4}
         className="w-[220px] p-0 bg-popover border-border shadow-xl"
@@ -102,7 +105,7 @@ export function MessageUsageIndicator({ usage, modelId }: MessageUsageProps) {
             </>
           ) : (
             <p className="text-[11px] text-muted-foreground">
-              Usage data not available for this response.
+              No token usage data found.
             </p>
           )}
 
@@ -112,7 +115,7 @@ export function MessageUsageIndicator({ usage, modelId }: MessageUsageProps) {
             </div>
           )}
         </div>
-      </TooltipContent>
-    </Tooltip>
+      </PopoverContent>
+    </Popover>
   )
 }

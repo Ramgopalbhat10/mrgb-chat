@@ -47,7 +47,7 @@ function ProjectDetailPage() {
 
       if (convsResponse.ok) {
         const convIds = await convsResponse.json()
-        console.log('Project conversations:', convIds)
+        // console.log('Project conversations:', convIds)
         setConversationIds(convIds)
       } else {
         console.error('Failed to fetch conversations:', convsResponse.status)

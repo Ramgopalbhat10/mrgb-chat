@@ -108,17 +108,27 @@ export function ChatView({
     return ''
   }, [])
 
-  // Extract usage from message annotations
-  const getMessageUsage = useCallback((message: UIMessage) => {
+  // Extract usage and model from message metadata (AI SDK v5 uses message.metadata)
+  const getMessageMeta = useCallback((message: UIMessage) => {
     const msg = message as any
+    
+    // AI SDK v5: metadata is set via messageMetadata callback in the stream response
+    if (msg.metadata) {
+      return {
+        usage: msg.metadata.usage,
+        modelId: msg.metadata.model,
+        gatewayCost: msg.metadata.gatewayCost,
+      }
+    }
+    
+    // Fallback: check annotations (older API versions)
     if (msg.annotations) {
       const usageAnnotation = msg.annotations.find((a: any) => a.type === 'usage' || a.usage)
-      if (usageAnnotation?.usage) return usageAnnotation.usage
-      if (usageAnnotation?.promptTokens) return usageAnnotation
+      if (usageAnnotation?.usage) {
+        return { usage: usageAnnotation.usage, modelId: undefined, gatewayCost: undefined }
+      }
     }
-    if (msg.experimental_providerMetadata?.usage) {
-      return msg.experimental_providerMetadata.usage
-    }
+    
     return undefined
   }, [])
 
@@ -132,11 +142,15 @@ export function ChatView({
       // Skip empty messages (streaming in progress)
       if (!content) return
 
-      // Extract usage metadata for assistant messages
-      const usage = message.role === 'assistant' ? getMessageUsage(message) : undefined
-      const metaJson = usage ? JSON.stringify({ usage, modelId: selectedModelMetadata?.id }) : null
+      // Extract usage metadata for assistant messages (from message.metadata set by API)
+      const meta = message.role === 'assistant' ? getMessageMeta(message) : undefined
+      const metaJson = meta?.usage ? JSON.stringify({ 
+        usage: meta.usage, 
+        modelId: meta.modelId,
+        gatewayCost: meta.gatewayCost,
+      }) : null
 
-      console.log('Persisting message:', { id: message.id, role: message.role, contentLength: content.length, hasUsage: !!usage })
+      // console.log('Persisting message:', { id: message.id, role: message.role, contentLength: content.length, meta })
 
       const messageData = {
         id: message.id,
@@ -170,7 +184,7 @@ export function ChatView({
         persistedMessageIds.current.delete(message.id)
       }
     },
-    [conversationId, getMessageContent, getMessageUsage, selectedModelMetadata],
+    [conversationId, getMessageContent, getMessageMeta],
   )
 
   const chatResult = useChat({
@@ -321,14 +335,14 @@ export function ChatView({
   const hasMessages = messages.length > 0
 
   // Debug: log messages and status changes
-  useEffect(() => {
-    console.log('useChat state:', { 
-      status, 
-      messageCount: messages.length,
-      messages: messages.map((m: any) => ({ id: m.id, role: m.role, partsCount: m.parts?.length }))
-    })
-    console.log('useChat messages:', messages)
-  }, [messages, status])
+  // useEffect(() => {
+  //   console.log('useChat state:', { 
+  //     status, 
+  //     messageCount: messages.length,
+  //     messages: messages.map((m: any) => ({ id: m.id, role: m.role, partsCount: m.parts?.length }))
+  //   })
+  //   console.log('useChat messages:', messages)
+  // }, [messages, status])
 
   useEffect(() => {
     if (scrollRef.current) {

@@ -22,6 +22,7 @@ import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as ApiShareRouteImport } from './routes/api/share'
 import { Route as ApiGenerateTitleRouteImport } from './routes/api/generate-title'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiCacheVersionRouteImport } from './routes/api/cache-version'
 import { Route as ApiProjectsIndexRouteImport } from './routes/api/projects/index'
 import { Route as ApiConversationsIndexRouteImport } from './routes/api/conversations/index'
 import { Route as ApiProjectsMetadataRouteImport } from './routes/api/projects/metadata'
@@ -99,6 +100,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCacheVersionRoute = ApiCacheVersionRouteImport.update({
+  id: '/api/cache-version',
+  path: '/api/cache-version',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiProjectsIndexRoute = ApiProjectsIndexRouteImport.update({
   id: '/api/projects/',
   path: '/api/projects/',
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/new': typeof NewRoute
   '/projects': typeof ProjectsRoute
   '/shared': typeof SharedRoute
+  '/api/cache-version': typeof ApiCacheVersionRoute
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
   '/api/share': typeof ApiShareRoute
@@ -192,6 +199,7 @@ export interface FileRoutesByTo {
   '/new': typeof NewRoute
   '/projects': typeof ProjectsRoute
   '/shared': typeof SharedRoute
+  '/api/cache-version': typeof ApiCacheVersionRoute
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
   '/api/share': typeof ApiShareRoute
@@ -219,6 +227,7 @@ export interface FileRoutesById {
   '/new': typeof NewRoute
   '/projects': typeof ProjectsRoute
   '/shared': typeof SharedRoute
+  '/api/cache-version': typeof ApiCacheVersionRoute
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
   '/api/share': typeof ApiShareRoute
@@ -247,6 +256,7 @@ export interface FileRouteTypes {
     | '/new'
     | '/projects'
     | '/shared'
+    | '/api/cache-version'
     | '/api/chat'
     | '/api/generate-title'
     | '/api/share'
@@ -273,6 +283,7 @@ export interface FileRouteTypes {
     | '/new'
     | '/projects'
     | '/shared'
+    | '/api/cache-version'
     | '/api/chat'
     | '/api/generate-title'
     | '/api/share'
@@ -299,6 +310,7 @@ export interface FileRouteTypes {
     | '/new'
     | '/projects'
     | '/shared'
+    | '/api/cache-version'
     | '/api/chat'
     | '/api/generate-title'
     | '/api/share'
@@ -326,6 +338,7 @@ export interface RootRouteChildren {
   NewRoute: typeof NewRoute
   ProjectsRoute: typeof ProjectsRoute
   SharedRoute: typeof SharedRoute
+  ApiCacheVersionRoute: typeof ApiCacheVersionRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiGenerateTitleRoute: typeof ApiGenerateTitleRoute
   ApiShareRoute: typeof ApiShareRoute
@@ -432,6 +445,13 @@ declare module '@tanstack/react-router' {
       path: '/api/chat'
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cache-version': {
+      id: '/api/cache-version'
+      path: '/api/cache-version'
+      fullPath: '/api/cache-version'
+      preLoaderRoute: typeof ApiCacheVersionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/projects/': {
@@ -550,6 +570,7 @@ const rootRouteChildren: RootRouteChildren = {
   NewRoute: NewRoute,
   ProjectsRoute: ProjectsRoute,
   SharedRoute: SharedRoute,
+  ApiCacheVersionRoute: ApiCacheVersionRoute,
   ApiChatRoute: ApiChatRoute,
   ApiGenerateTitleRoute: ApiGenerateTitleRoute,
   ApiShareRoute: ApiShareRoute,
