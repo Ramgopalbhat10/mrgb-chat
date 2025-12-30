@@ -42,7 +42,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { useAppStore } from '@/stores/app-store'
 import type { Conversation } from '@/lib/indexeddb'
-import { projectKeys, projectsQueryOptions } from '../data/queries'
+import { projectKeys, projectsQueryOptions, sharedKeys } from '../data/queries'
 
 interface Project {
   id: string
@@ -208,7 +208,24 @@ export function ConversationActionsDropdown({
   const handleDelete = async () => {
     setIsLoading(true)
     try {
+      // Wait for server deletion to complete FIRST (this cleans up shared items and project associations)
+      const serverResponse = await fetch(`/api/conversations/${conversation.id}`, {
+        method: 'DELETE',
+      })
+      
+      if (!serverResponse.ok) {
+        throw new Error('Server deletion failed')
+      }
+      
+      // Then delete from local store (IndexedDB)
       await deleteConversation(conversation.id)
+      
+      // Force refetch of all project and shared queries (not just invalidate)
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: projectKeys.all }),
+        queryClient.refetchQueries({ queryKey: sharedKeys.all }),
+      ])
+      
       setIsDeleteOpen(false)
       onDeleted?.()
     } catch (error) {

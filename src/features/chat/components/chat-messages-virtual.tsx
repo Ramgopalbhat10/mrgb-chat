@@ -24,9 +24,10 @@ import { Streamdown } from 'streamdown'
 interface ChatMessagesVirtualProps {
   messages: UIMessage[]
   isLoading?: boolean
+  regeneratingMessageId?: string | null // ID of message being regenerated
   onLoadMore?: () => void
   hasMore?: boolean
-  onReload?: () => void
+  onReload?: (assistantMessageId: string) => void
   onShareMessage?: (messageId: string, userInput: string, response: string) => Promise<string | null>
   onUnshareMessage?: (shareId: string) => Promise<boolean>
   sharedMessageMap?: Map<string, string> // originalMessageId -> shareId
@@ -163,6 +164,7 @@ function getMessageMeta(message: UIMessage): MessageMeta | undefined {
 export function ChatMessagesVirtual({
   messages,
   isLoading,
+  regeneratingMessageId,
   onLoadMore,
   hasMore,
   onReload,
@@ -184,10 +186,11 @@ export function ChatMessagesVirtual({
   const [copied, setCopied] = useState(false)
 
   const lastMessage = messages[messages.length - 1]
-  const isStreaming = isLoading && lastMessage?.role === 'assistant'
+  // Streaming when: normal loading with assistant message OR regenerating any message
+  const isStreaming = (isLoading && lastMessage?.role === 'assistant') || !!regeneratingMessageId
 
-  // Add loading indicator as virtual item if needed
-  const showLoadingIndicator = isLoading && lastMessage?.role === 'user'
+  // Add loading indicator as virtual item if needed (only for new messages, not regeneration)
+  const showLoadingIndicator = isLoading && lastMessage?.role === 'user' && !regeneratingMessageId
   const itemCount = messages.length + (showLoadingIndicator ? 1 : 0)
 
   const virtualizer = useVirtualizer({
@@ -226,12 +229,14 @@ export function ChatMessagesVirtual({
   }, [messages.length, itemCount, virtualizer, scrollToMessageId])
 
   // Auto-scroll during streaming (skip if we have a scroll target that hasn't been reached)
+  // Also skip auto-scroll during regeneration - user is viewing an existing message
   useEffect(() => {
     if (scrollToMessageId && !hasScrolledToTarget.current) return
+    if (regeneratingMessageId) return // Don't auto-scroll during regeneration
     if (isStreaming) {
       virtualizer.scrollToIndex(itemCount - 1, { align: 'end' })
     }
-  }, [isStreaming, itemCount, virtualizer, scrollToMessageId])
+  }, [isStreaming, itemCount, virtualizer, scrollToMessageId, regeneratingMessageId])
 
   // Load more when scrolling to top
   const handleScroll = useCallback(() => {
@@ -366,16 +371,23 @@ export function ChatMessagesVirtual({
                       <p className="whitespace-pre-wrap">{text}</p>
                     ) : (
                       <div className="flex flex-col gap-3">
-                        <div
-                          className={cn(
-                            'prose prose-sm prose-invert max-w-none',
-                            isLastAssistant &&
-                              isStreaming &&
-                              '**:animate-in **:fade-in **:duration-150',
-                          )}
-                        >
-                          <Streamdown>{text}</Streamdown>
-                        </div>
+                        {/* Show loading dots when regenerating with empty content */}
+                        {regeneratingMessageId === message.id && !text ? (
+                          <div className="text-sm">
+                            <span className="text-foreground animate-pulse">●●●</span>
+                          </div>
+                        ) : (
+                          <div
+                            className={cn(
+                              'prose prose-sm prose-invert max-w-none',
+                              (isLastAssistant || regeneratingMessageId === message.id) &&
+                                isStreaming &&
+                                '**:animate-in **:fade-in **:duration-150',
+                            )}
+                          >
+                            <Streamdown>{text}</Streamdown>
+                          </div>
+                        )}
                         {!isStreaming && (
                           <div className="flex items-center gap-0.5">
                             {(() => {
@@ -413,7 +425,7 @@ export function ChatMessagesVirtual({
                             />
                             <MessageAction 
                               icon={Refresh01Icon} 
-                              onClick={() => onReload?.()} 
+                              onClick={() => onReload?.(message.id)} 
                               tooltip="Regenerate" 
                             />
                             <MessageAction 

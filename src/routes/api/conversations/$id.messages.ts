@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { and, asc, eq, gt } from 'drizzle-orm'
 
 import { db } from '@/server/db'
-import { conversations, messages } from '@/server/db/schema'
+import { conversations, messages, sharedMessages } from '@/server/db/schema'
 import {
   getCachedMessagePreview,
   setCachedMessagePreview,
@@ -165,6 +165,80 @@ export const Route = createFileRoute('/api/conversations/$id/messages')({
         } catch (error) {
           console.error('Failed to create message:', error)
           return new Response('Failed to create message', { status: 500 })
+        }
+      },
+
+      // PATCH /api/conversations/:id/messages - Update a specific message content
+      PATCH: async ({ params, request }) => {
+        const auth = await requireAuth(request)
+        if (!auth.authorized) return auth.response
+
+        try {
+          const url = new URL(request.url)
+          const messageId = url.searchParams.get('messageId')
+          const body = await request.json()
+
+          if (!messageId) {
+            return new Response('messageId query param required', { status: 400 })
+          }
+
+          if (!body.content) {
+            return new Response('content is required', { status: 400 })
+          }
+
+          // Update the message content
+          await db
+            .update(messages)
+            .set({ content: body.content })
+            .where(
+              and(
+                eq(messages.id, messageId),
+                eq(messages.conversationId, params.id),
+              ),
+            )
+
+          // Invalidate cache
+          await invalidateOnNewMessage(params.id)
+
+          return new Response(null, { status: 204 })
+        } catch (error) {
+          console.error('Failed to update message:', error)
+          return new Response('Failed to update message', { status: 500 })
+        }
+      },
+
+      // DELETE /api/conversations/:id/messages - Delete a specific message
+      DELETE: async ({ params, request }) => {
+        const auth = await requireAuth(request)
+        if (!auth.authorized) return auth.response
+
+        try {
+          const url = new URL(request.url)
+          const messageId = url.searchParams.get('messageId')
+
+          if (!messageId) {
+            return new Response('messageId query param required', { status: 400 })
+          }
+
+          // First delete any shared message linked to this message
+          await db
+            .delete(sharedMessages)
+            .where(eq(sharedMessages.originalMessageId, messageId))
+
+          // Then delete the message itself
+          await db
+            .delete(messages)
+            .where(
+              and(
+                eq(messages.id, messageId),
+                eq(messages.conversationId, params.id),
+              ),
+            )
+
+          return new Response(null, { status: 204 })
+        } catch (error) {
+          console.error('Failed to delete message:', error)
+          return new Response('Failed to delete message', { status: 500 })
         }
       },
     },

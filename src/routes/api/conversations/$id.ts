@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 
 import { db } from '@/server/db'
-import { conversations, messages, sharedMessages } from '@/server/db/schema'
+import { conversations, messages, sharedMessages, conversationProjects } from '@/server/db/schema'
 import {
   invalidateOnConversationUpdate,
   invalidateOnConversationDelete,
@@ -89,6 +89,11 @@ export const Route = createFileRoute('/api/conversations/$id')({
           await db
             .delete(sharedMessages)
             .where(eq(sharedMessages.conversationId, params.id))
+          
+          // Delete project associations (explicit for reliability)
+          await db
+            .delete(conversationProjects)
+            .where(eq(conversationProjects.conversationId, params.id))
           
           // Delete messages (also has cascade, but explicit is clearer)
           await db

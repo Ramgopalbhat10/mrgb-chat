@@ -39,6 +39,9 @@ export function ChatView({
   const updateConversation = useAppStore((state) => state.updateConversation)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  
+  // Track which message is being regenerated (null when not regenerating)
+  const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null)
 
   const conversation = conversations.find((c) => c.id === conversationId)
   const title = conversation?.title
@@ -241,33 +244,169 @@ export function ChatView({
     }
   }, [queryClient])
 
-  // Reload/regenerate function - removes last assistant message and regenerates
-  const handleRegenerate = useCallback(async () => {
-    // Find the last user message index
-    const lastUserMessageIndex = [...messages].reverse().findIndex((m: any) => m.role === 'user')
-    if (lastUserMessageIndex === -1) return
+  // Reload/regenerate function - updates assistant response IN PLACE (keeps same ID, just updates content)
+  const handleRegenerate = useCallback(async (assistantMessageId: string) => {
+    // Find the assistant message being regenerated
+    const assistantIndex = messages.findIndex((m: any) => m.id === assistantMessageId)
+    if (assistantIndex === -1) return
     
-    const actualUserIndex = messages.length - 1 - lastUserMessageIndex
-    const lastUserMessage = messages[actualUserIndex]
+    // Find the user message immediately before this assistant message
+    let userIndex = -1
+    for (let i = assistantIndex - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        userIndex = i
+        break
+      }
+    }
+    if (userIndex === -1) return
     
-    // Get the user message content before modifying messages
-    const userContent = typeof lastUserMessage.content === 'string' 
-      ? lastUserMessage.content 
-      : lastUserMessage.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') || ''
+    // 1. Set regenerating state to show loading UI
+    setRegeneratingMessageId(assistantMessageId)
     
-    if (!userContent) return
+    // 2. If shared, unshare first
+    const shareId = sharedMessageMap.get(assistantMessageId)
+    if (shareId) {
+      await handleUnshareMessage(shareId)
+    }
     
-    // Remove BOTH the last user message AND any assistant messages after it
-    // This prevents duplication when sendMessage adds a new user message
-    const newMessages = messages.slice(0, actualUserIndex)
-    setMessages(newMessages)
+    // 3. Clear content in UI immediately (keep same ID, clear metadata for fresh usage)
+    setMessages((prev: any[]) => {
+      const updated = [...prev]
+      updated[assistantIndex] = {
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        parts: [{ type: 'text', text: '' }],
+        metadata: undefined, // Clear old metadata/usage
+      }
+      return updated
+    })
     
-    // Small delay to ensure state update propagates
-    await new Promise(resolve => setTimeout(resolve, 50))
+    // 3. Get messages to send to AI (everything up to and including the user message)
+    const messagesForAI = messages.slice(0, userIndex + 1).map((m: any) => {
+      const textContent = typeof m.content === 'string' ? m.content : 
+        m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') || ''
+      return {
+        id: m.id,
+        role: m.role,
+        content: textContent,
+        parts: [{ type: 'text', text: textContent }],
+      }
+    })
     
-    // Resend the message (this will add the user message and trigger AI response)
-    sendMessage({ text: userContent })
-  }, [messages, setMessages, sendMessage])
+    // 4. Call chat API and stream response
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: messagesForAI }),
+      })
+      
+      if (!response.ok || !response.body) {
+        console.error('Failed to regenerate response')
+        return
+      }
+      
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let fullContent = ''
+      let buffer = ''
+      let messageMetadata: any = null
+      
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        
+        for (const line of lines) {
+          if (!line.trim()) continue
+          // SSE format: "data: {json}" - strip the "data: " prefix
+          const jsonStr = line.startsWith('data: ') ? line.slice(6) : line
+          if (!jsonStr.trim() || jsonStr === '[DONE]') continue
+          try {
+            const parsed = JSON.parse(jsonStr)
+            // Handle text-delta events from AI SDK stream
+            if (parsed.type === 'text-delta' && parsed.delta) {
+              fullContent += parsed.delta
+              // Update message by ID
+              setMessages((prev: any[]) => {
+                const idx = prev.findIndex((m: any) => m.id === assistantMessageId)
+                if (idx === -1) return prev
+                const updated = [...prev]
+                updated[idx] = {
+                  ...updated[idx],
+                  content: fullContent,
+                  parts: [{ type: 'text', text: fullContent }],
+                }
+                return updated
+              })
+            }
+            // Capture finish event with metadata (usage, model, etc.)
+            if (parsed.type === 'finish' && parsed.messageMetadata) {
+              messageMetadata = parsed.messageMetadata
+            }
+          } catch {
+            // Not JSON, ignore
+          }
+        }
+      }
+      
+      // Process remaining buffer
+      if (buffer.trim()) {
+        const jsonStr = buffer.startsWith('data: ') ? buffer.slice(6) : buffer
+        if (jsonStr.trim() && jsonStr !== '[DONE]') {
+          try {
+            const parsed = JSON.parse(jsonStr)
+            if (parsed.type === 'text-delta' && parsed.delta) {
+              fullContent += parsed.delta
+            }
+            if (parsed.type === 'finish' && parsed.messageMetadata) {
+              messageMetadata = parsed.messageMetadata
+            }
+          } catch {
+            // Ignore
+          }
+        }
+      }
+      
+      // 5. Final update and persist (UPDATE existing record, not create new)
+      if (fullContent) {
+        setMessages((prev: any[]) => {
+          const idx = prev.findIndex((m: any) => m.id === assistantMessageId)
+          if (idx === -1) return prev
+          const updated = [...prev]
+          updated[idx] = {
+            ...updated[idx],
+            content: fullContent,
+            parts: [{ type: 'text', text: fullContent }],
+            // Include metadata for usage display
+            metadata: messageMetadata || undefined,
+          }
+          return updated
+        })
+        
+        // Update in IndexedDB (same ID)
+        await db.updateMessage(assistantMessageId, { content: fullContent }).catch(console.error)
+        
+        // Update on server (PATCH with messageId query param)
+        fetch(`/api/conversations/${conversationId}/messages?messageId=${assistantMessageId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: fullContent }),
+        }).catch(console.error)
+      } else {
+        console.error('Regeneration produced no content')
+      }
+    } catch (error) {
+      console.error('Error regenerating response:', error)
+    } finally {
+      // Clear regenerating state when done (success or error)
+      setRegeneratingMessageId(null)
+    }
+  }, [messages, setMessages, conversationId, sharedMessageMap, handleUnshareMessage])
 
   // User messages are persisted manually in handleSubmit for reliability
   // This ensures they're saved before any re-renders or navigation
@@ -431,7 +570,8 @@ export function ChatView({
       ) : (
         <ChatMessagesVirtual 
           messages={messages} 
-          isLoading={isLoading} 
+          isLoading={isLoading || !!regeneratingMessageId}
+          regeneratingMessageId={regeneratingMessageId}
           onReload={handleRegenerate}
           onShareMessage={handleShareMessage}
           onUnshareMessage={handleUnshareMessage}
