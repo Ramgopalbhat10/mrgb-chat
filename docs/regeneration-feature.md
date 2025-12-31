@@ -10,16 +10,15 @@ The regeneration feature allows users to regenerate any assistant response in a 
 3. Streams the new response in place of the old one
 4. Updates the database with the new content (same message ID)
 
-## Why Custom Implementation?
+## Why Use the Built-In Regenerate?
 
-The AI SDK's `useChat` hook handles normal message sending and streaming automatically. However, regeneration has unique requirements:
+The AI SDK now supports `regenerate({ messageId })`, which allows targeted regeneration while keeping the client-side streaming behavior consistent with normal sends. We still preserve the core requirements:
 
-1. **In-place update**: The message must stay at its original position in the conversation
-2. **Same ID**: We keep the same message ID to avoid UI disruption and maintain associations (e.g., shared links)
-3. **Targeted regeneration**: Users can regenerate any response, not just the last one
-4. **Context preservation**: Only messages up to the target user input are sent to the AI
+1. **In-place update**: The regenerated assistant message keeps the same ID.
+2. **Targeted regeneration**: Any assistant response can be regenerated.
+3. **Context preservation**: Only messages up to the target user input are sent.
 
-The `useChat` hook's built-in `reload()` function only regenerates the last message and doesn't support these requirements, so we implemented custom streaming logic.
+We no longer need to manually parse the SSE stream, which simplifies the logic and aligns with `useChat`'s built-in behavior.
 
 ## Architecture
 
@@ -27,7 +26,7 @@ The `useChat` hook's built-in `reload()` function only regenerates the last mess
 
 - `src/features/chat/components/chat-view.tsx` - Main chat component with `handleRegenerate` function
 - `src/features/chat/components/chat-messages-virtual.tsx` - Message rendering with regeneration UI state
-- `src/routes/api/conversations/$id.messages.ts` - PATCH endpoint for updating message content
+- `src/routes/api/conversations/$id.messages.ts` - PATCH endpoint for updating message content (and metadata)
 - `src/routes/api/chat.ts` - Chat API that streams AI responses
 
 ### State Management
@@ -63,105 +62,29 @@ The main regeneration logic:
 
 ```typescript
 const handleRegenerate = useCallback(async (assistantMessageId: string) => {
-  // 1. Find the assistant message and its preceding user message
   const assistantIndex = messages.findIndex((m) => m.id === assistantMessageId)
-  const userIndex = /* find user message before assistantIndex */
-  
-  // 2. Set regenerating state (shows loading UI)
+  if (assistantIndex === -1) return
+
   setRegeneratingMessageId(assistantMessageId)
-  
-  // 3. If message was shared, unshare first
-  if (sharedMessageMap.get(assistantMessageId)) {
-    await handleUnshareMessage(shareId)
-  }
-  
-  // 4. Clear content in UI (keep same ID, clear metadata)
-  setMessages((prev) => {
-    const updated = [...prev]
-    updated[assistantIndex] = {
-      id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      parts: [{ type: 'text', text: '' }],
-      metadata: undefined, // Clear old usage data
-    }
-    return updated
+
+  // Keep tail messages visible while regenerate trims history
+  const tailMessages = messages.slice(assistantIndex + 1)
+  setRegenerationTail(tailMessages.length ? tailMessages : null)
+
+  await regenerate({
+    messageId: assistantMessageId,
+    body: { modelId: conversation?.modelId },
   })
-  
-  // 5. Prepare messages for AI (up to and including user message)
-  const messagesForAI = messages.slice(0, userIndex + 1).map(...)
-  
-  // 6. Call /api/chat and stream response
-  const response = await fetch('/api/chat', { ... })
-  
-  // 7. Parse SSE stream and update message in place
-  // (see Stream Parsing section below)
-  
-  // 8. Persist to IndexedDB and server
-  await db.updateMessage(assistantMessageId, { content: fullContent })
-  fetch(`/api/conversations/${conversationId}/messages?messageId=${assistantMessageId}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ content: fullContent }),
-  })
-  
-  // 9. Clear regenerating state
+
+  // Re-attach tail messages after streaming completes
+  setMessages((current) => [...current, ...tailMessages])
   setRegeneratingMessageId(null)
 }, [...])
 ```
 
-### 3. Stream Parsing
+### 3. Streaming
 
-The AI SDK returns Server-Sent Events (SSE) format:
-
-```
-data: {"type":"start"}
-data: {"type":"text-delta","id":"0","delta":"Hello"}
-data: {"type":"text-delta","id":"0","delta":" world"}
-data: {"type":"text-end","id":"0"}
-data: {"type":"finish","finishReason":"stop",...}
-```
-
-Parsing logic:
-
-```typescript
-const reader = response.body.getReader()
-const decoder = new TextDecoder()
-let fullContent = ''
-let buffer = ''
-
-while (true) {
-  const { done, value } = await reader.read()
-  if (done) break
-  
-  buffer += decoder.decode(value, { stream: true })
-  const lines = buffer.split('\n')
-  buffer = lines.pop() || '' // Keep incomplete line
-  
-  for (const line of lines) {
-    if (!line.trim()) continue
-    // Strip "data: " prefix (SSE format)
-    const jsonStr = line.startsWith('data: ') ? line.slice(6) : line
-    if (!jsonStr.trim() || jsonStr === '[DONE]') continue
-    
-    const parsed = JSON.parse(jsonStr)
-    if (parsed.type === 'text-delta' && parsed.delta) {
-      fullContent += parsed.delta
-      // Update message in UI
-      setMessages((prev) => {
-        const idx = prev.findIndex((m) => m.id === assistantMessageId)
-        if (idx === -1) return prev
-        const updated = [...prev]
-        updated[idx] = {
-          ...updated[idx],
-          content: fullContent,
-          parts: [{ type: 'text', text: fullContent }],
-        }
-        return updated
-      })
-    }
-  }
-}
-```
+Streaming is handled by the AI SDK. The server uses `toUIMessageStreamResponse` with a fixed `generateMessageId` during regeneration so the response keeps the original assistant message ID.
 
 ### 4. UI State During Regeneration
 
@@ -227,16 +150,15 @@ The UPDATE approach solves all these:
 | Aspect | Normal Chat (`useChat`) | Regeneration (Custom) |
 |--------|------------------------|----------------------|
 | Message creation | Automatic by SDK | Manual via PATCH |
-| Streaming | Handled by SDK | Manual SSE parsing |
-| Message ID | Generated by SDK | Kept same |
-| Position | Appended to end | In-place update |
-| State tracking | `status` from SDK | `regeneratingMessageId` |
-| UI update | Automatic | Manual `setMessages` |
+| Streaming | Handled by SDK | Handled by SDK |
+| Message ID | Generated by SDK | Fixed to original ID on regenerate |
+| Position | Appended to end | Appended, then tail messages restored |
+| State tracking | `status` from SDK | `regeneratingMessageId` + tail buffer |
+| UI update | Automatic | Automatic + tail restore |
 
 ## Key Learnings
 
-1. **SSE format**: The stream has `data: ` prefix before JSON - must strip it
-2. **Buffer handling**: Chunks can arrive split mid-line - use buffer
-3. **Index vs ID**: Use message ID for lookups, not array index (which can change)
-4. **Metadata clearing**: Clear old usage/cost metadata when regenerating
-5. **State cleanup**: Always clear `regeneratingMessageId` in `finally` block
+1. **Message ID**: Regeneration relies on `messageId` + `trigger` from the client.
+2. **Server ID**: The server fixes the response ID via `generateMessageId`.
+3. **Tail restore**: Messages after the regenerated response are restored after streaming.
+4. **State cleanup**: Always clear `regeneratingMessageId` in `finally` block.

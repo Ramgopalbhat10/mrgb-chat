@@ -1,7 +1,7 @@
 import { Share01Icon, Download01Icon, Copy01Icon, Refresh01Icon, Tick01Icon, LockIcon, Globe02Icon, Loading03Icon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   Tooltip,
@@ -16,6 +16,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+import { Separator } from '@/components/ui/separator'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { MessageUsageIndicator, type MessageUsage } from './message-usage'
 import type { UIMessage } from 'ai'
 import { cn } from '@/lib/utils'
@@ -53,6 +62,29 @@ function getMessageText(message: UIMessage): string {
   }
 
   return ''
+}
+
+function getReasoningParts(message: UIMessage): Array<{
+  type: 'reasoning'
+  text: string
+  state?: 'streaming' | 'done'
+}> {
+  if (!message.parts) return []
+  return message.parts.filter(
+    (part): part is { type: 'reasoning'; text: string; state?: 'streaming' | 'done' } =>
+      part.type === 'reasoning',
+  )
+}
+
+function getReasoningText(message: UIMessage): string {
+  return getReasoningParts(message)
+    .map((part) => part.text)
+    .join('')
+}
+
+function formatThoughtDuration(seconds: number): string {
+  if (seconds === 1) return '1 second'
+  return `${seconds} seconds`
 }
 
 // Estimate message height based on content length
@@ -177,6 +209,10 @@ export function ChatMessagesVirtual({
   const parentRef = useRef<HTMLDivElement>(null)
   const lastMessageCount = useRef(messages.length)
   const hasScrolledToTarget = useRef(false)
+
+  const [reasoningOpen, setReasoningOpen] = useState(false)
+  const [reasoningMessageId, setReasoningMessageId] = useState<string | null>(null)
+  const reasoningSessionsRef = useRef<Record<string, { startedAt: number; endedAt?: number }>>({})
   
   // Share dialog state
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
@@ -185,9 +221,48 @@ export function ChatMessagesVirtual({
   const [isUpdatingShare, setIsUpdatingShare] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  const openReasoning = useCallback((messageId: string) => {
+    setReasoningMessageId(messageId)
+    setReasoningOpen(true)
+  }, [])
+
+  const handleReasoningOpenChange = useCallback((nextOpen: boolean) => {
+    if (!nextOpen) setReasoningOpen(false)
+  }, [])
+
+  const handleShareDialogOpenChange = useCallback((nextOpen: boolean) => {
+    if (!nextOpen) setShareDialogOpen(false)
+  }, [])
+
   const lastMessage = messages[messages.length - 1]
   // Streaming when: normal loading with assistant message OR regenerating any message
   const isStreaming = (isLoading && lastMessage?.role === 'assistant') || !!regeneratingMessageId
+
+  const reasoningSessions = useMemo(() => {
+    const sessions = { ...reasoningSessionsRef.current }
+    const now = Date.now()
+
+    if (regeneratingMessageId && sessions[regeneratingMessageId]) {
+      delete sessions[regeneratingMessageId]
+    }
+
+    for (const message of messages) {
+      if (message.role !== 'assistant') continue
+      const reasoningParts = getReasoningParts(message)
+      if (reasoningParts.length === 0) continue
+
+      if (!sessions[message.id]) {
+        sessions[message.id] = { startedAt: now }
+      }
+
+      const isComplete = reasoningParts.every((part) => part.state === 'done')
+      if (isComplete && sessions[message.id] && !sessions[message.id].endedAt) {
+        sessions[message.id].endedAt = now
+      }
+    }
+
+    return sessions
+  }, [messages, regeneratingMessageId])
 
   // Add loading indicator as virtual item if needed (only for new messages, not regeneration)
   const showLoadingIndicator = isLoading && lastMessage?.role === 'user' && !regeneratingMessageId
@@ -217,7 +292,7 @@ export function ChatMessagesVirtual({
         }, 300)
       }
     }
-  }, [scrollToMessageId, messages, virtualizer])
+  }, [scrollToMessageId, messages])
 
   // Auto-scroll to bottom when new messages arrive (skip if we have a scroll target)
   useEffect(() => {
@@ -226,7 +301,7 @@ export function ChatMessagesVirtual({
       lastMessageCount.current = messages.length
       virtualizer.scrollToIndex(itemCount - 1, { align: 'end', behavior: 'smooth' })
     }
-  }, [messages.length, itemCount, virtualizer, scrollToMessageId])
+  }, [messages.length, itemCount, scrollToMessageId])
 
   // Auto-scroll during streaming (skip if we have a scroll target that hasn't been reached)
   // Also skip auto-scroll during regeneration - user is viewing an existing message
@@ -236,7 +311,7 @@ export function ChatMessagesVirtual({
     if (isStreaming) {
       virtualizer.scrollToIndex(itemCount - 1, { align: 'end' })
     }
-  }, [isStreaming, itemCount, virtualizer, scrollToMessageId, regeneratingMessageId])
+  }, [isStreaming, itemCount, scrollToMessageId, regeneratingMessageId])
 
   // Load more when scrolling to top
   const handleScroll = useCallback(() => {
@@ -301,6 +376,47 @@ export function ChatMessagesVirtual({
     }
   }
 
+  const selectedReasoningMessage = useMemo(() => {
+    if (!reasoningMessageId) return null
+    return messages.find((message) => message.id === reasoningMessageId) || null
+  }, [messages, reasoningMessageId])
+
+  const selectedReasoningParts = useMemo(
+    () => (selectedReasoningMessage ? getReasoningParts(selectedReasoningMessage) : []),
+    [selectedReasoningMessage],
+  )
+
+  const selectedReasoningText = useMemo(
+    () => (selectedReasoningMessage ? getReasoningText(selectedReasoningMessage) : ''),
+    [selectedReasoningMessage],
+  )
+
+  const selectedReasoningBlocks = useMemo(() => {
+    return selectedReasoningText
+      .split(/\n{2,}/)
+      .map((block) => block.trim())
+      .filter(Boolean)
+  }, [selectedReasoningText])
+
+  const selectedReasoningSession = reasoningMessageId
+    ? reasoningSessions[reasoningMessageId]
+    : undefined
+  const selectedDurationSeconds =
+    selectedReasoningSession?.endedAt && selectedReasoningSession.startedAt
+      ? Math.max(
+          1,
+          Math.round(
+            (selectedReasoningSession.endedAt - selectedReasoningSession.startedAt) / 1000,
+          ),
+        )
+      : null
+  const selectedDurationLabel = selectedDurationSeconds
+    ? formatThoughtDuration(selectedDurationSeconds)
+    : null
+  const selectedReasoningStreaming = selectedReasoningParts.some(
+    (part) => part.state === 'streaming',
+  )
+
   if (messages.length === 0) {
     return null
   }
@@ -342,6 +458,24 @@ export function ChatMessagesVirtual({
             const isUser = message.role === 'user'
             const isLastAssistant =
               virtualItem.index === messages.length - 1 && !isUser
+            const reasoningParts = getReasoningParts(message)
+            const hasReasoning = reasoningParts.length > 0
+            const reasoningSession = reasoningSessions[message.id]
+            const reasoningDurationSeconds =
+              reasoningSession?.endedAt && reasoningSession.startedAt
+                ? Math.max(
+                    1,
+                    Math.round(
+                      (reasoningSession.endedAt - reasoningSession.startedAt) / 1000,
+                    ),
+                  )
+                : null
+            const reasoningDurationLabel = reasoningDurationSeconds
+              ? formatThoughtDuration(reasoningDurationSeconds)
+              : null
+            const isReasoningStreaming = reasoningParts.some(
+              (part) => part.state === 'streaming',
+            )
 
             return (
               <div
@@ -371,8 +505,35 @@ export function ChatMessagesVirtual({
                       <p className="whitespace-pre-wrap">{text}</p>
                     ) : (
                       <div className="flex flex-col gap-3">
+                        {hasReasoning && (
+                          <button
+                            type="button"
+                            onClick={() => openReasoning(message.id)}
+                            title="View reasoning"
+                            className="group inline-flex items-center gap-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            <HugeiconsIcon
+                              icon={Loading03Icon}
+                              size={14}
+                              strokeWidth={2}
+                              className={cn(
+                                'text-muted-foreground/60 transition-colors group-hover:text-foreground',
+                                isReasoningStreaming && 'animate-spin',
+                              )}
+                            />
+                            {isReasoningStreaming ? (
+                              <span className="bg-linear-to-r from-foreground/40 via-foreground/90 to-foreground/40 bg-size-[200%_100%] bg-clip-text text-transparent animate-pulse">
+                                Thinking
+                              </span>
+                            ) : (
+                              <span>
+                                Thought for {reasoningDurationLabel ?? 'a moment'}
+                              </span>
+                            )}
+                          </button>
+                        )}
                         {/* Show loading dots when regenerating with empty content */}
-                        {regeneratingMessageId === message.id && !text ? (
+                        {regeneratingMessageId === message.id && !text && !hasReasoning ? (
                           <div className="text-sm">
                             <span className="text-foreground animate-pulse">●●●</span>
                           </div>
@@ -453,7 +614,7 @@ export function ChatMessagesVirtual({
       </div>
 
       {/* Share Dialog */}
-      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+      <Dialog open={shareDialogOpen} onOpenChange={handleShareDialogOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Share response</DialogTitle>
@@ -544,6 +705,73 @@ export function ChatMessagesVirtual({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Sheet open={reasoningOpen} onOpenChange={setReasoningOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md">
+          <SheetHeader className="pb-2">
+            <SheetTitle>
+              {selectedReasoningStreaming
+                ? 'Thinking'
+                : selectedDurationLabel
+                  ? `Thought for ${selectedDurationLabel}`
+                  : 'Thoughts'}
+            </SheetTitle>
+            <SheetDescription>
+              {selectedReasoningStreaming
+                ? 'Live reasoning stream'
+                : 'Reasoning trace'}
+            </SheetDescription>
+          </SheetHeader>
+          <Separator />
+          <ScrollArea className="flex-1 px-4 pb-4">
+            {selectedReasoningBlocks.length > 0 ? (
+              <div className="flex flex-col gap-4 py-4">
+                {selectedReasoningBlocks.map((block, index) => {
+                  const isLast = index === selectedReasoningBlocks.length - 1
+                  return (
+                    <div
+                      key={`${index}-${block.slice(0, 16)}`}
+                      className="flex gap-3"
+                    >
+                      <div className="flex flex-col items-center pt-1">
+                        <span
+                          className={cn(
+                            'h-2 w-2 rounded-full',
+                            isLast && selectedReasoningStreaming
+                              ? 'bg-primary/80 animate-pulse'
+                              : 'bg-muted-foreground/60',
+                          )}
+                        />
+                        {!isLast && (
+                          <span className="mt-2 w-px flex-1 bg-border/60" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                          Step {index + 1}
+                        </div>
+                        <div className="prose prose-sm prose-invert max-w-none">
+                          <Streamdown>{block}</Streamdown>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="py-4 text-sm text-muted-foreground">
+                {selectedReasoningStreaming ? (
+                  <span className="bg-linear-to-r from-foreground/40 via-foreground/90 to-foreground/40 bg-size-[200%_100%] bg-clip-text text-transparent animate-pulse">
+                    Thinking...
+                  </span>
+                ) : (
+                  'No reasoning captured yet.'
+                )}
+              </div>
+            )}
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

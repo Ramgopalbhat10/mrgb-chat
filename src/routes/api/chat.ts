@@ -14,21 +14,48 @@ export const Route = createFileRoute('/api/chat')({
           return new Response('Missing AI_GATEWAY_API_KEY', { status: 500 })
         }
 
-        const { messages, data }: { messages: UIMessage[]; data?: { modelId?: string } } = await request.json()
+        const {
+          messages,
+          modelId,
+          messageId,
+          trigger,
+        }: {
+          messages: UIMessage[]
+          modelId?: string
+          messageId?: string
+          trigger?: string
+        } = await request.json()
 
-        const model = data?.modelId ?? process.env.AI_MODEL ?? 'google/gemini-3-flash'
+        const model = modelId ?? process.env.AI_MODEL ?? 'google/gemini-3-flash'
+        console.log("model: ", model);
 
         const result = streamText({
           model: gateway(model),
           messages: convertToModelMessages(messages),
+          providerOptions: {
+            google: {
+              thinkingConfig: {
+                thinkingLevel: 'high',
+                includeThoughts: true,
+              }
+            },
+            anthropic: {
+              thinking: { type: 'enabled', budgetTokens: 12000 },
+            }
+          }
         })
 
         // Return stream with usage data included in message metadata
         return result.toUIMessageStreamResponse({
+          sendReasoning: true,
+          generateMessageId:
+            trigger === 'regenerate-message' && messageId
+              ? () => messageId
+              : undefined,
           messageMetadata: ({ part }) => {
             if (part.type === 'finish') {
               const finishPart = part as any
-              
+
               // Include usage and cost data in message metadata
               // AI SDK v5 uses totalUsage instead of usage
               const usage = finishPart.totalUsage || finishPart.usage
@@ -37,14 +64,14 @@ export const Route = createFileRoute('/api/chat')({
                 usage,
                 finishReason: finishPart.finishReason,
               }
-              
+
               // Include gateway cost if available (from response or providerMetadata)
               const providerMeta = finishPart.providerMetadata || finishPart.response?.providerMetadata
               if (providerMeta?.gateway) {
                 metadata.gatewayCost = providerMeta.gateway.cost
                 metadata.generationId = providerMeta.gateway.generationId
               }
-              
+
               // console.log('Sending message metadata:', metadata)
               return metadata
             }

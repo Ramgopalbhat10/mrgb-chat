@@ -42,6 +42,9 @@ export function ChatView({
   
   // Track which message is being regenerated (null when not regenerating)
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null)
+  const regeneratingMessageIdRef = useRef<string | null>(null)
+  const [regenerationTail, setRegenerationTail] = useState<UIMessage[] | null>(null)
+  const regenerationTailRef = useRef<UIMessage[] | null>(null)
 
   const conversation = conversations.find((c) => c.id === conversationId)
   const title = conversation?.title
@@ -130,9 +133,6 @@ export function ChatView({
   // Persist a single message to IndexedDB and server
   const persistMessage = useCallback(
     async (message: UIMessage) => {
-      // Skip if already persisted
-      if (persistedMessageIds.current.has(message.id)) return
-
       const content = getMessageContent(message)
       // Skip empty messages (streaming in progress)
       if (!content) return
@@ -147,17 +147,32 @@ export function ChatView({
 
       // console.log('Persisting message:', { id: message.id, role: message.role, contentLength: content.length, meta })
 
-      const messageData = {
-        id: message.id,
-        conversationId,
-        role: message.role as 'user' | 'assistant' | 'system' | 'tool',
-        content,
-        clientId: null,
-        metaJson,
-        createdAt: new Date(),
-      }
-
       try {
+        if (persistedMessageIds.current.has(message.id)) {
+          if (regeneratingMessageIdRef.current !== message.id) return
+
+          // Update existing message during regeneration
+          await db.updateMessage(message.id, { content, metaJson }).catch(console.error)
+
+          fetch(`/api/conversations/${conversationId}/messages?messageId=${message.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content, metaJson }),
+          }).catch(console.error)
+
+          return
+        }
+
+        const messageData = {
+          id: message.id,
+          conversationId,
+          role: message.role as 'user' | 'assistant' | 'system' | 'tool',
+          content,
+          clientId: null,
+          metaJson,
+          createdAt: new Date(),
+        }
+
         persistedMessageIds.current.add(message.id)
 
         // Persist to IndexedDB (local-first)
@@ -169,11 +184,14 @@ export function ChatView({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(messageData),
-        }).then(res => {
-            if (!res.ok) console.error('Server persistence failed:', res.status, res.statusText)
-        }).catch((error) => {
-          console.error('Failed to persist message to server:', error)
         })
+          .then((res) => {
+            if (!res.ok)
+              console.error('Server persistence failed:', res.status, res.statusText)
+          })
+          .catch((error) => {
+            console.error('Failed to persist message to server:', error)
+          })
       } catch (error) {
         console.error('Failed to persist message:', error)
         persistedMessageIds.current.delete(message.id)
@@ -191,7 +209,18 @@ export function ChatView({
     },
   })
   
-  const { messages, sendMessage, status, setMessages } = chatResult as any
+  const { messages: chatMessages, sendMessage, status, setMessages, regenerate } = chatResult as any
+  const displayMessages = useMemo(
+    () => {
+      if (!regenerationTail?.length) return chatMessages
+      const existingIds = new Set(chatMessages.map((message: UIMessage) => message.id))
+      const dedupedTail = regenerationTail.filter(
+        (message) => !existingIds.has(message.id),
+      )
+      return [...chatMessages, ...dedupedTail]
+    },
+    [chatMessages, regenerationTail],
+  )
   
   // Share a specific message - creates a public shareable link
   const handleShareMessage = useCallback(async (messageId: string, userInput: string, response: string): Promise<string | null> => {
@@ -244,24 +273,15 @@ export function ChatView({
     }
   }, [queryClient])
 
-  // Reload/regenerate function - updates assistant response IN PLACE (keeps same ID, just updates content)
+  // Reload/regenerate function - uses AI SDK regenerate for in-place updates
   const handleRegenerate = useCallback(async (assistantMessageId: string) => {
     // Find the assistant message being regenerated
-    const assistantIndex = messages.findIndex((m: any) => m.id === assistantMessageId)
+    const assistantIndex = chatMessages.findIndex((m: any) => m.id === assistantMessageId)
     if (assistantIndex === -1) return
-    
-    // Find the user message immediately before this assistant message
-    let userIndex = -1
-    for (let i = assistantIndex - 1; i >= 0; i--) {
-      if (messages[i].role === 'user') {
-        userIndex = i
-        break
-      }
-    }
-    if (userIndex === -1) return
     
     // 1. Set regenerating state to show loading UI
     setRegeneratingMessageId(assistantMessageId)
+    regeneratingMessageIdRef.current = assistantMessageId
     
     // 2. If shared, unshare first
     const shareId = sharedMessageMap.get(assistantMessageId)
@@ -269,144 +289,46 @@ export function ChatView({
       await handleUnshareMessage(shareId)
     }
     
-    // 3. Clear content in UI immediately (keep same ID, clear metadata for fresh usage)
-    setMessages((prev: any[]) => {
-      const updated = [...prev]
-      updated[assistantIndex] = {
-        id: assistantMessageId,
-        role: 'assistant',
-        content: '',
-        parts: [{ type: 'text', text: '' }],
-        metadata: undefined, // Clear old metadata/usage
-      }
-      return updated
-    })
-    
-    // 3. Get messages to send to AI (everything up to and including the user message)
-    const messagesForAI = messages.slice(0, userIndex + 1).map((m: any) => {
-      const textContent = typeof m.content === 'string' ? m.content : 
-        m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') || ''
-      return {
-        id: m.id,
-        role: m.role,
-        content: textContent,
-        parts: [{ type: 'text', text: textContent }],
-      }
-    })
-    
-    // 4. Call chat API and stream response
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messagesForAI }),
+      // Keep tail messages visible while regenerate trims history
+      const tailMessages = chatMessages.slice(assistantIndex + 1)
+      regenerationTailRef.current = tailMessages.length ? tailMessages : null
+      setRegenerationTail(tailMessages.length ? tailMessages : null)
+
+      await regenerate({
+        messageId: assistantMessageId,
+        body: {
+          modelId: conversation?.modelId ?? selectedModelMetadata?.id,
+        },
       })
-      
-      if (!response.ok || !response.body) {
-        console.error('Failed to regenerate response')
-        return
-      }
-      
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let fullContent = ''
-      let buffer = ''
-      let messageMetadata: any = null
-      
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-        
-        for (const line of lines) {
-          if (!line.trim()) continue
-          // SSE format: "data: {json}" - strip the "data: " prefix
-          const jsonStr = line.startsWith('data: ') ? line.slice(6) : line
-          if (!jsonStr.trim() || jsonStr === '[DONE]') continue
-          try {
-            const parsed = JSON.parse(jsonStr)
-            // Handle text-delta events from AI SDK stream
-            if (parsed.type === 'text-delta' && parsed.delta) {
-              fullContent += parsed.delta
-              // Update message by ID
-              setMessages((prev: any[]) => {
-                const idx = prev.findIndex((m: any) => m.id === assistantMessageId)
-                if (idx === -1) return prev
-                const updated = [...prev]
-                updated[idx] = {
-                  ...updated[idx],
-                  content: fullContent,
-                  parts: [{ type: 'text', text: fullContent }],
-                }
-                return updated
-              })
-            }
-            // Capture finish event with metadata (usage, model, etc.)
-            if (parsed.type === 'finish' && parsed.messageMetadata) {
-              messageMetadata = parsed.messageMetadata
-            }
-          } catch {
-            // Not JSON, ignore
-          }
-        }
-      }
-      
-      // Process remaining buffer
-      if (buffer.trim()) {
-        const jsonStr = buffer.startsWith('data: ') ? buffer.slice(6) : buffer
-        if (jsonStr.trim() && jsonStr !== '[DONE]') {
-          try {
-            const parsed = JSON.parse(jsonStr)
-            if (parsed.type === 'text-delta' && parsed.delta) {
-              fullContent += parsed.delta
-            }
-            if (parsed.type === 'finish' && parsed.messageMetadata) {
-              messageMetadata = parsed.messageMetadata
-            }
-          } catch {
-            // Ignore
-          }
-        }
-      }
-      
-      // 5. Final update and persist (UPDATE existing record, not create new)
-      if (fullContent) {
-        setMessages((prev: any[]) => {
-          const idx = prev.findIndex((m: any) => m.id === assistantMessageId)
-          if (idx === -1) return prev
-          const updated = [...prev]
-          updated[idx] = {
-            ...updated[idx],
-            content: fullContent,
-            parts: [{ type: 'text', text: fullContent }],
-            // Include metadata for usage display
-            metadata: messageMetadata || undefined,
-          }
-          return updated
-        })
-        
-        // Update in IndexedDB (same ID)
-        await db.updateMessage(assistantMessageId, { content: fullContent }).catch(console.error)
-        
-        // Update on server (PATCH with messageId query param)
-        fetch(`/api/conversations/${conversationId}/messages?messageId=${assistantMessageId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: fullContent }),
-        }).catch(console.error)
-      } else {
-        console.error('Regeneration produced no content')
-      }
     } catch (error) {
       console.error('Error regenerating response:', error)
     } finally {
+      const tailMessages = regenerationTailRef.current
+      if (tailMessages?.length) {
+        setMessages((current: any[]) => {
+          const existingIds = new Set(current.map((m) => m.id))
+          const dedupedTail = tailMessages.filter((m) => !existingIds.has(m.id))
+          return [...current, ...dedupedTail]
+        })
+      }
+
+      regenerationTailRef.current = null
+      setRegenerationTail(null)
+
       // Clear regenerating state when done (success or error)
       setRegeneratingMessageId(null)
+      regeneratingMessageIdRef.current = null
     }
-  }, [messages, setMessages, conversationId, sharedMessageMap, handleUnshareMessage])
+  }, [
+    chatMessages,
+    conversation?.modelId,
+    selectedModelMetadata?.id,
+    regenerate,
+    setMessages,
+    sharedMessageMap,
+    handleUnshareMessage,
+  ])
 
   // User messages are persisted manually in handleSubmit for reliability
   // This ensures they're saved before any re-renders or navigation
@@ -463,23 +385,23 @@ export function ChatView({
   }, [pendingMessage, conversationId, sendMessage])
 
   const isLoading = status === 'streaming' || status === 'submitted'
-  const hasMessages = messages.length > 0
+  const hasMessages = displayMessages.length > 0
 
   // Debug: log messages and status changes
   // useEffect(() => {
   //   console.log('useChat state:', { 
   //     status, 
-  //     messageCount: messages.length,
-  //     messages: messages.map((m: any) => ({ id: m.id, role: m.role, partsCount: m.parts?.length }))
+  //     messageCount: chatMessages.length,
+  //     messages: chatMessages.map((m: any) => ({ id: m.id, role: m.role, partsCount: m.parts?.length }))
   //   })
-  //   console.log('useChat messages:', messages)
-  // }, [messages, status])
+  //   console.log('useChat messages:', chatMessages)
+  // }, [chatMessages, status])
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages])
+  }, [displayMessages])
 
   const handleSubmit = async (e: React.FormEvent, modelId?: string) => {
     e.preventDefault()
@@ -569,7 +491,7 @@ export function ChatView({
         </div>
       ) : (
         <ChatMessagesVirtual 
-          messages={messages} 
+          messages={displayMessages} 
           isLoading={isLoading || !!regeneratingMessageId}
           regeneratingMessageId={regeneratingMessageId}
           onReload={handleRegenerate}
@@ -585,7 +507,7 @@ export function ChatView({
         onInputChange={setInput}
         onSubmit={handleSubmit}
         isLoading={isLoading}
-        messages={messages}
+        messages={displayMessages}
         defaultModelId={conversation?.modelId}
       />
     </div>

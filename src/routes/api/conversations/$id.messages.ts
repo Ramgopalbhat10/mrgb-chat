@@ -186,10 +186,18 @@ export const Route = createFileRoute('/api/conversations/$id/messages')({
             return new Response('content is required', { status: 400 })
           }
 
+          const updates: Partial<typeof messages.$inferInsert> = {
+            content: body.content,
+          }
+
+          if (body.metaJson !== undefined) {
+            updates.metaJson = body.metaJson
+          }
+
           // Update the message content
           await db
             .update(messages)
-            .set({ content: body.content })
+            .set(updates)
             .where(
               and(
                 eq(messages.id, messageId),

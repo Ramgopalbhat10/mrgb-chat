@@ -35,6 +35,9 @@ import {
   Fireworks,
   Alibaba,
   Gemini,
+  Qwen,
+  Nvidia,
+  Voyage,
 } from '@lobehub/icons'
 import { cn } from '@/lib/utils'
 
@@ -57,6 +60,9 @@ const PROVIDER_ICONS: Record<string, React.ComponentType<{ size?: number; classN
   fireworks: Fireworks,
   alibaba: Alibaba,
   gemini: Gemini,
+  qwen: Qwen,
+  nvidia: Nvidia,
+  voyage: Voyage,
 }
 
 interface ModelSelectorProps {
