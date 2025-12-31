@@ -39,7 +39,7 @@ export function ChatView({
   const updateConversation = useAppStore((state) => state.updateConversation)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  
+
   // Track which message is being regenerated (null when not regenerating)
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null)
   const regeneratingMessageIdRef = useRef<string | null>(null)
@@ -52,7 +52,7 @@ export function ChatView({
 
   // Fetch shared items to show indicator on shared messages
   const { data: sharedData } = useQuery(sharedItemsQueryOptions())
-  
+
   // Create a Map of originalMessageId -> shareId for quick lookup and correct URLs
   const sharedMessageMap = useMemo((): Map<string, string> => {
     if (!sharedData?.responses) return new Map<string, string>()
@@ -90,7 +90,7 @@ export function ChatView({
     if (typeof msg.content === 'string' && msg.content.length > 0) {
       return msg.content
     }
-    
+
     // Assistant messages (or others) might use parts
     if (message.parts && message.parts.length > 0) {
       return message.parts
@@ -100,7 +100,7 @@ export function ChatView({
         .map((part) => part.text)
         .join('')
     }
-    
+
     // Debug log if content missing
     console.warn('getMessageContent: Empty content', message)
     return ''
@@ -109,7 +109,7 @@ export function ChatView({
   // Extract usage and model from message metadata (AI SDK v5 uses message.metadata)
   const getMessageMeta = useCallback((message: UIMessage) => {
     const msg = message as any
-    
+
     // AI SDK v5: metadata is set via messageMetadata callback in the stream response
     if (msg.metadata) {
       return {
@@ -118,7 +118,7 @@ export function ChatView({
         gatewayCost: msg.metadata.gatewayCost,
       }
     }
-    
+
     // Fallback: check annotations (older API versions)
     if (msg.annotations) {
       const usageAnnotation = msg.annotations.find((a: any) => a.type === 'usage' || a.usage)
@@ -126,7 +126,7 @@ export function ChatView({
         return { usage: usageAnnotation.usage, modelId: undefined, gatewayCost: undefined }
       }
     }
-    
+
     return undefined
   }, [])
 
@@ -139,10 +139,20 @@ export function ChatView({
 
       // Extract usage metadata for assistant messages (from message.metadata set by API)
       const meta = message.role === 'assistant' ? getMessageMeta(message) : undefined
-      const metaJson = meta?.usage ? JSON.stringify({ 
-        usage: meta.usage, 
-        modelId: meta.modelId,
-        gatewayCost: meta.gatewayCost,
+
+      // Extract reasoning parts to persist them
+      const reasoningParts = message.parts
+        ?.filter((part) => part.type === 'reasoning')
+        .map(part => {
+          const reasoningPart = part as { type: 'reasoning'; text: string; state?: 'streaming' | 'done' }
+          return { type: 'reasoning' as const, text: reasoningPart.text, state: 'done' as const }
+        })
+
+      const metaJson = (meta?.usage || (reasoningParts && reasoningParts.length > 0)) ? JSON.stringify({
+        usage: meta?.usage,
+        modelId: meta?.modelId,
+        gatewayCost: meta?.gatewayCost,
+        reasoningParts: reasoningParts?.length ? reasoningParts : undefined,
       }) : null
 
       // console.log('Persisting message:', { id: message.id, role: message.role, contentLength: content.length, meta })
@@ -208,7 +218,7 @@ export function ChatView({
       await persistMessage(message)
     },
   })
-  
+
   const { messages: chatMessages, sendMessage, status, setMessages, regenerate } = chatResult as any
   const displayMessages = useMemo(
     () => {
@@ -221,7 +231,7 @@ export function ChatView({
     },
     [chatMessages, regenerationTail],
   )
-  
+
   // Share a specific message - creates a public shareable link
   const handleShareMessage = useCallback(async (messageId: string, userInput: string, response: string): Promise<string | null> => {
     try {
@@ -236,12 +246,12 @@ export function ChatView({
           modelId: selectedModelMetadata?.id,
         }),
       })
-      
+
       if (!res.ok) {
         console.error('Failed to create share link')
         return null
       }
-      
+
       const data = await res.json()
       // Refetch shared items to update the map
       queryClient.invalidateQueries({ queryKey: sharedKeys.items() })
@@ -258,12 +268,12 @@ export function ChatView({
       const res = await fetch(`/api/share?id=${shareId}`, {
         method: 'DELETE',
       })
-      
+
       if (!res.ok) {
         console.error('Failed to delete share link')
         return false
       }
-      
+
       // Refetch shared items to update the map
       queryClient.invalidateQueries({ queryKey: sharedKeys.items() })
       return true
@@ -278,17 +288,17 @@ export function ChatView({
     // Find the assistant message being regenerated
     const assistantIndex = chatMessages.findIndex((m: any) => m.id === assistantMessageId)
     if (assistantIndex === -1) return
-    
+
     // 1. Set regenerating state to show loading UI
     setRegeneratingMessageId(assistantMessageId)
     regeneratingMessageIdRef.current = assistantMessageId
-    
+
     // 2. If shared, unshare first
     const shareId = sharedMessageMap.get(assistantMessageId)
     if (shareId) {
       await handleUnshareMessage(shareId)
     }
-    
+
     try {
       // Keep tail messages visible while regenerate trims history
       const tailMessages = chatMessages.slice(assistantIndex + 1)
@@ -469,11 +479,10 @@ export function ChatView({
         // Sidebar toggle - absolutely positioned to avoid layout shift
         // Uses CSS transition delay to wait for sidebar close animation
         <div
-          className={`absolute top-3 left-4 z-10 transition-opacity duration-150 ${
-            showSidebarToggle
-              ? 'opacity-100 delay-200'
-              : 'opacity-0 pointer-events-none delay-0'
-          }`}
+          className={`absolute top-3 left-4 z-10 transition-opacity duration-150 ${showSidebarToggle
+            ? 'opacity-100 delay-200'
+            : 'opacity-0 pointer-events-none delay-0'
+            }`}
         >
           <Button
             variant="ghost"
@@ -490,8 +499,8 @@ export function ChatView({
           <ChatEmptyState />
         </div>
       ) : (
-        <ChatMessagesVirtual 
-          messages={displayMessages} 
+        <ChatMessagesVirtual
+          messages={displayMessages}
           isLoading={isLoading || !!regeneratingMessageId}
           regeneratingMessageId={regeneratingMessageId}
           onReload={handleRegenerate}

@@ -68,7 +68,7 @@ function ChatPage() {
       try {
         // Step 1: Try IndexedDB first (instant)
         let dbMessages = await db.getMessagesByConversation(id)
-        
+
         // Step 2: If IndexedDB is empty, fetch from server and sync
         if (dbMessages.length === 0) {
           try {
@@ -76,7 +76,7 @@ function ChatPage() {
             if (response.ok) {
               const data = await response.json()
               const serverMessages = Array.isArray(data) ? data : data.messages || []
-              
+
               // Sync server messages to IndexedDB
               for (const msg of serverMessages) {
                 const message = {
@@ -90,7 +90,7 @@ function ChatPage() {
                 }
                 await db.createMessage(message)
               }
-              
+
               // Reload from IndexedDB after sync
               dbMessages = await db.getMessagesByConversation(id)
             }
@@ -98,29 +98,41 @@ function ChatPage() {
             console.warn('Failed to fetch messages from server:', serverError)
           }
         }
-        
+
         const uiMessages: UIMessage[] = dbMessages.map((msg) => {
-          // Parse metaJson to restore usage metadata
+          // Parse metaJson to restore usage metadata and reasoning parts
           let metadata: any = undefined
+          let reasoningParts: Array<{ type: 'reasoning'; text: string; state: 'done' }> = []
+
           if (msg.metaJson) {
             try {
               const parsed = JSON.parse(msg.metaJson)
               if (parsed.usage) {
-                metadata = { 
-                  usage: parsed.usage, 
+                metadata = {
+                  usage: parsed.usage,
                   model: parsed.modelId, // Use 'model' to match API response format
                   gatewayCost: parsed.gatewayCost, // gatewayCost is stored at root level
                 }
+              }
+              // Restore reasoning parts if they exist
+              if (parsed.reasoningParts && Array.isArray(parsed.reasoningParts)) {
+                reasoningParts = parsed.reasoningParts
               }
             } catch (e) {
               console.warn('Failed to parse metaJson:', e)
             }
           }
-          
+
+          // Build parts array - reasoning first, then text content
+          const parts: UIMessage['parts'] = [
+            ...reasoningParts,
+            { type: 'text' as const, text: msg.content },
+          ]
+
           return {
             id: msg.id,
             role: msg.role as 'user' | 'assistant',
-            parts: [{ type: 'text' as const, text: msg.content }],
+            parts,
             createdAt: msg.createdAt,
             metadata,
           }

@@ -109,14 +109,14 @@ function estimateMessageHeight(message: UIMessage): number {
   return baseHeight + lines * lineHeight + codeBlockHeight
 }
 
-function MessageAction({ 
-  icon, 
-  onClick, 
+function MessageAction({
+  icon,
+  onClick,
   tooltip,
   successIcon,
   successTooltip,
   iconClassName,
-}: { 
+}: {
   icon: any
   onClick: () => void
   tooltip: string
@@ -125,7 +125,7 @@ function MessageAction({
   iconClassName?: string
 }) {
   const [showSuccess, setShowSuccess] = useState(false)
-  
+
   const handleClick = () => {
     onClick()
     if (successIcon) {
@@ -145,8 +145,8 @@ function MessageAction({
           size="icon"
           className={cn(
             "h-7 w-7 transition-all duration-200",
-            showSuccess 
-              ? "text-emerald-500 hover:text-emerald-400" 
+            showSuccess
+              ? "text-emerald-500 hover:text-emerald-400"
               : iconClassName || "text-muted-foreground hover:text-foreground hover:bg-muted/50"
           )}
           onClick={handleClick}
@@ -169,7 +169,7 @@ interface MessageMeta {
 
 function getMessageMeta(message: UIMessage): MessageMeta | undefined {
   const msg = message as any
-  
+
   // AI SDK v5: Usage data is in message.metadata (set via messageMetadata callback)
   if (msg.metadata?.usage) {
     const usage: MessageUsage = {
@@ -178,18 +178,18 @@ function getMessageMeta(message: UIMessage): MessageMeta | undefined {
       totalTokens: msg.metadata.usage.totalTokens,
       reasoningTokens: msg.metadata.usage.reasoningTokens,
     }
-    
+
     // Gateway cost is included directly in metadata
     if (msg.metadata.gatewayCost) {
       usage.gatewayCost = msg.metadata.gatewayCost
     }
-    
+
     return {
       usage,
       modelId: msg.metadata.model, // Model ID from API response
     }
   }
-  
+
   return undefined
 }
 
@@ -209,11 +209,14 @@ export function ChatMessagesVirtual({
   const parentRef = useRef<HTMLDivElement>(null)
   const lastMessageCount = useRef(messages.length)
   const hasScrolledToTarget = useRef(false)
+  const prevRegeneratingMessageIdRef = useRef<string | null>(null)
+  // Track original text length when regeneration starts to detect when new content arrives
+  const regenerationOriginalLengthRef = useRef<number>(0)
 
   const [reasoningOpen, setReasoningOpen] = useState(false)
   const [reasoningMessageId, setReasoningMessageId] = useState<string | null>(null)
   const reasoningSessionsRef = useRef<Record<string, { startedAt: number; endedAt?: number }>>({})
-  
+
   // Share dialog state
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareDialogMessage, setShareDialogMessage] = useState<{ id: string; userInput: string; response: string } | null>(null)
@@ -251,12 +254,22 @@ export function ChatMessagesVirtual({
       const reasoningParts = getReasoningParts(message)
       if (reasoningParts.length === 0) continue
 
+      const isComplete = reasoningParts.every((part) => part.state === 'done')
+
       if (!sessions[message.id]) {
-        sessions[message.id] = { startedAt: now }
+        // First time seeing this message with reasoning
+        if (isComplete) {
+          // Already complete (loaded from DB) - no timing available
+          // Don't set startedAt/endedAt so it shows "a moment"
+          sessions[message.id] = { startedAt: 0 } // 0 indicates no real timing
+        } else {
+          // Live streaming - start tracking
+          sessions[message.id] = { startedAt: now }
+        }
       }
 
-      const isComplete = reasoningParts.every((part) => part.state === 'done')
-      if (isComplete && sessions[message.id] && !sessions[message.id].endedAt) {
+      // Only set endedAt if we have a valid startedAt (live tracking)
+      if (isComplete && sessions[message.id] && sessions[message.id].startedAt > 0 && !sessions[message.id].endedAt) {
         sessions[message.id].endedAt = now
       }
     }
@@ -274,6 +287,10 @@ export function ChatMessagesVirtual({
     estimateSize: (index) => {
       if (index >= messages.length) {
         return 48 // Loading indicator height
+      }
+      // Return small height for the message being regenerated (loading dots)
+      if (regeneratingMessageId === messages[index].id) {
+        return 72 // Height for loading dots state
       }
       return estimateMessageHeight(messages[index])
     },
@@ -294,24 +311,43 @@ export function ChatMessagesVirtual({
     }
   }, [scrollToMessageId, messages])
 
-  // Auto-scroll to bottom when new messages arrive (skip if we have a scroll target)
+  // Auto-scroll to bottom when new messages arrive (skip if we have a scroll target or regenerating)
   useEffect(() => {
     if (scrollToMessageId && !hasScrolledToTarget.current) return
+    if (regeneratingMessageId) return // Don't scroll during regeneration
     if (messages.length > lastMessageCount.current) {
       lastMessageCount.current = messages.length
       virtualizer.scrollToIndex(itemCount - 1, { align: 'end', behavior: 'smooth' })
     }
-  }, [messages.length, itemCount, scrollToMessageId])
+  }, [messages.length, itemCount, scrollToMessageId, regeneratingMessageId])
 
-  // Auto-scroll during streaming (skip if we have a scroll target that hasn't been reached)
-  // Also skip auto-scroll during regeneration - user is viewing an existing message
+  // Note: Removed auto-scroll during streaming as it caused issues during regeneration.
+  // Users can manually scroll if needed. Scroll only happens for NEW messages (above effect).
+
+  // Force virtualizer to remeasure when regeneration state changes
   useEffect(() => {
-    if (scrollToMessageId && !hasScrolledToTarget.current) return
-    if (regeneratingMessageId) return // Don't auto-scroll during regeneration
-    if (isStreaming) {
-      virtualizer.scrollToIndex(itemCount - 1, { align: 'end' })
+    const prevId = prevRegeneratingMessageIdRef.current
+    prevRegeneratingMessageIdRef.current = regeneratingMessageId ?? null
+
+    // Regeneration started or completed - force remeasure
+    if (prevId !== regeneratingMessageId) {
+      if (regeneratingMessageId) {
+        // Starting regeneration - capture original length
+        const messageIndex = messages.findIndex(m => m.id === regeneratingMessageId)
+        if (messageIndex !== -1) {
+          regenerationOriginalLengthRef.current = getMessageText(messages[messageIndex]).length
+        }
+      } else {
+        // Completed regeneration - reset
+        regenerationOriginalLengthRef.current = 0
+      }
+      // Delay remeasure to let React update DOM first
+      setTimeout(() => {
+        virtualizer.measure()
+      }, 50)
     }
-  }, [isStreaming, itemCount, scrollToMessageId, regeneratingMessageId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regeneratingMessageId])
 
   // Load more when scrolling to top
   const handleScroll = useCallback(() => {
@@ -344,7 +380,7 @@ export function ChatMessagesVirtual({
     if (shareMode === mode || !shareDialogMessage) return
     setShareMode(mode)
     setIsUpdatingShare(true)
-    
+
     try {
       if (mode === 'public') {
         // Share the message
@@ -367,7 +403,7 @@ export function ChatMessagesVirtual({
 
   const handleCopyShareLink = async () => {
     if (!shareDialogMessage || shareMode === 'private') return
-    
+
     const shareId = sharedMessageMap?.get(shareDialogMessage.id)
     if (shareId) {
       await navigator.clipboard.writeText(`${window.location.origin}/s/${shareId}`)
@@ -391,11 +427,36 @@ export function ChatMessagesVirtual({
     [selectedReasoningMessage],
   )
 
+  // Group reasoning text into logical blocks, keeping headers with their content
   const selectedReasoningBlocks = useMemo(() => {
-    return selectedReasoningText
-      .split(/\n{2,}/)
-      .map((block) => block.trim())
-      .filter(Boolean)
+    const lines = selectedReasoningText.split('\n')
+    const blocks: string[] = []
+    let currentBlock: string[] = []
+
+    for (const line of lines) {
+      const trimmedLine = line.trim()
+      // Check if line is a header (starts with ** or #)
+      const isHeader = /^(\*\*|#{1,6}\s)/.test(trimmedLine)
+
+      if (isHeader && currentBlock.length > 0) {
+        // If we hit a new header and have content, save current block first
+        const blockText = currentBlock.join('\n').trim()
+        if (blockText) blocks.push(blockText)
+        currentBlock = [line]
+      } else if (trimmedLine === '' && currentBlock.length > 0) {
+        // Empty line - check if next content starts with header
+        // For now, just add to current block to maintain spacing
+        currentBlock.push(line)
+      } else {
+        currentBlock.push(line)
+      }
+    }
+
+    // Don't forget the last block
+    const lastBlockText = currentBlock.join('\n').trim()
+    if (lastBlockText) blocks.push(lastBlockText)
+
+    return blocks
   }, [selectedReasoningText])
 
   const selectedReasoningSession = reasoningMessageId
@@ -404,11 +465,11 @@ export function ChatMessagesVirtual({
   const selectedDurationSeconds =
     selectedReasoningSession?.endedAt && selectedReasoningSession.startedAt
       ? Math.max(
-          1,
-          Math.round(
-            (selectedReasoningSession.endedAt - selectedReasoningSession.startedAt) / 1000,
-          ),
-        )
+        1,
+        Math.round(
+          (selectedReasoningSession.endedAt - selectedReasoningSession.startedAt) / 1000,
+        ),
+      )
       : null
   const selectedDurationLabel = selectedDurationSeconds
     ? formatThoughtDuration(selectedDurationSeconds)
@@ -425,182 +486,66 @@ export function ChatMessagesVirtual({
     <div
       ref={parentRef}
       className="flex-1 overflow-y-auto"
-      style={{ contain: 'strict' }}
     >
-      <div
-        className="relative w-full max-w-3xl mx-auto"
-        style={{ height: `${virtualizer.getTotalSize()}px` }}
-      >
-        <div className="p-6">
-          {virtualizer.getVirtualItems().map((virtualItem) => {
-            // Loading indicator
-            if (virtualItem.index >= messages.length) {
-              return (
-                <div
-                  key="loading"
-                  className="absolute top-0 left-0 w-full px-6"
-                  style={{
-                    transform: `translateY(${virtualItem.start}px)`,
-                    height: `${virtualItem.size}px`,
-                  }}
-                >
-                  <div className="flex flex-col gap-1.5 items-start">
-                    <div className="text-sm">
-                      <span className="text-foreground animate-pulse">●●●</span>
-                    </div>
-                  </div>
-                </div>
-              )
-            }
-
-            const message = messages[virtualItem.index]
+      {/* During regeneration, use normal flow layout instead of virtualization to avoid height calculation issues */}
+      {regeneratingMessageId ? (
+        <div className="w-full max-w-3xl mx-auto p-6">
+          {messages.map((message, index) => {
             const text = getMessageText(message)
             const isUser = message.role === 'user'
-            const isLastAssistant =
-              virtualItem.index === messages.length - 1 && !isUser
+            const isLastAssistant = index === messages.length - 1 && !isUser
             const reasoningParts = getReasoningParts(message)
             const hasReasoning = reasoningParts.length > 0
             const reasoningSession = reasoningSessions[message.id]
             const reasoningDurationSeconds =
               reasoningSession?.endedAt && reasoningSession.startedAt
-                ? Math.max(
-                    1,
-                    Math.round(
-                      (reasoningSession.endedAt - reasoningSession.startedAt) / 1000,
-                    ),
-                  )
+                ? Math.max(1, Math.round((reasoningSession.endedAt - reasoningSession.startedAt) / 1000))
                 : null
             const reasoningDurationLabel = reasoningDurationSeconds
               ? formatThoughtDuration(reasoningDurationSeconds)
               : null
-            const isReasoningStreaming = reasoningParts.some(
-              (part) => part.state === 'streaming',
-            )
+            const isReasoningStreaming = reasoningParts.some((part) => part.state === 'streaming')
+            const isBeingRegenerated = regeneratingMessageId === message.id
+            const hasNewStreamingContent = isBeingRegenerated
+              ? (text.length !== regenerationOriginalLengthRef.current || isReasoningStreaming)
+              : false
+            const showRegenerationLoading = isBeingRegenerated && !hasNewStreamingContent
 
             return (
-              <div
-                key={message.id}
-                data-index={virtualItem.index}
-                ref={virtualizer.measureElement}
-                className="absolute top-0 left-0 w-full px-6"
-                style={{
-                  transform: `translateY(${virtualItem.start}px)`,
-                }}
-              >
-                <div
-                  className={cn(
-                    'flex flex-col gap-1.5 py-3 group',
-                    isUser ? 'items-end' : 'items-start',
-                  )}
-                >
+              <div key={message.id} className="px-6">
+                <div className={cn('flex flex-col gap-1.5 py-3 group', isUser ? 'items-end' : 'items-start')}>
                   <div
                     className={cn(
                       'rounded-md text-sm leading-relaxed',
-                      isUser
-                        ? 'bg-secondary px-3 py-2 text-foreground border border-secondary max-w-[85%]'
-                        : 'text-foreground w-full',
+                      isUser ? 'bg-secondary px-3 py-2 text-foreground border border-secondary max-w-[85%]' : 'text-foreground w-full',
                     )}
                   >
                     {isUser ? (
                       <p className="whitespace-pre-wrap">{text}</p>
                     ) : (
                       <div className="flex flex-col gap-3">
-                        {hasReasoning && (
+                        {hasReasoning && !showRegenerationLoading && (
                           <button
                             type="button"
                             onClick={() => openReasoning(message.id)}
                             title="View reasoning"
                             className="group inline-flex items-center gap-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                           >
-                            <HugeiconsIcon
-                              icon={Loading03Icon}
-                              size={14}
-                              strokeWidth={2}
-                              className={cn(
-                                'text-muted-foreground/60 transition-colors group-hover:text-foreground',
-                                isReasoningStreaming && 'animate-spin',
-                              )}
-                            />
-                            {isReasoningStreaming ? (
-                              <span className="bg-linear-to-r from-foreground/40 via-foreground/90 to-foreground/40 bg-size-[200%_100%] bg-clip-text text-transparent animate-pulse">
-                                Thinking
-                              </span>
-                            ) : (
-                              <span>
-                                Thought for {reasoningDurationLabel ?? 'a moment'}
-                              </span>
-                            )}
+                            <HugeiconsIcon icon={Loading03Icon} size={14} strokeWidth={2} className={cn('text-muted-foreground/60', isReasoningStreaming && 'animate-spin')} />
+                            {isReasoningStreaming ? <span className="animate-pulse">Thinking</span> : <span>Thought for {reasoningDurationLabel ?? 'a moment'}</span>}
                           </button>
                         )}
-                        {/* Show loading dots when regenerating with empty content */}
-                        {regeneratingMessageId === message.id && !text && !hasReasoning ? (
-                          <div className="text-sm">
-                            <span className="text-foreground animate-pulse">●●●</span>
-                          </div>
+                        {showRegenerationLoading ? (
+                          <div className="text-sm py-2"><span className="text-foreground animate-pulse">●●●</span></div>
                         ) : (
-                          <div
-                            className={cn(
-                              'prose prose-sm prose-invert max-w-none',
-                              (isLastAssistant || regeneratingMessageId === message.id) &&
-                                isStreaming &&
-                                '**:animate-in **:fade-in **:duration-150',
-                            )}
-                          >
+                          <div className={cn('prose prose-sm prose-invert max-w-none', (isLastAssistant || isBeingRegenerated) && isStreaming && '**:animate-in **:fade-in **:duration-150')}>
                             <Streamdown>{text}</Streamdown>
                           </div>
                         )}
-                        {!isStreaming && (
+                        {!isBeingRegenerated && (
                           <div className="flex items-center gap-0.5">
-                            {(() => {
-                              const meta = getMessageMeta(message)
-                              return (
-                                <MessageUsageIndicator 
-                                  usage={meta?.usage}
-                                  modelId={meta?.modelId || modelId}
-                                />
-                              )
-                            })()}
-                            <MessageAction 
-                              icon={Copy01Icon} 
-                              successIcon={Tick01Icon}
-                              successTooltip="Copied!"
-                              onClick={() => navigator.clipboard.writeText(text)} 
-                              tooltip="Copy" 
-                            />
-                            <MessageAction 
-                              icon={Download01Icon} 
-                              successIcon={Tick01Icon}
-                              successTooltip="Downloaded!"
-                              onClick={() => {
-                                const blob = new Blob([text], { type: 'text/markdown' })
-                                const url = URL.createObjectURL(blob)
-                                const a = document.createElement('a')
-                                a.href = url
-                                a.download = `chat-${message.id.slice(0, 8)}.md`
-                                document.body.appendChild(a)
-                                a.click()
-                                document.body.removeChild(a)
-                                URL.revokeObjectURL(url)
-                              }} 
-                              tooltip="Download" 
-                            />
-                            <MessageAction 
-                              icon={Refresh01Icon} 
-                              onClick={() => onReload?.(message.id)} 
-                              tooltip="Regenerate" 
-                            />
-                            <MessageAction 
-                              icon={sharedMessageMap?.has(message.id) ? Globe02Icon : Share01Icon}
-                              iconClassName={sharedMessageMap?.has(message.id) ? "text-emerald-500 hover:text-emerald-400" : undefined}
-                              onClick={() => {
-                                // Find the user message before this assistant message
-                                const msgIndex = messages.findIndex(m => m.id === message.id)
-                                const userMessage = msgIndex > 0 ? messages[msgIndex - 1] : null
-                                const userInput = userMessage ? getMessageText(userMessage) : ''
-                                openShareDialog(message.id, userInput, text)
-                              }} 
-                              tooltip={sharedMessageMap?.has(message.id) ? "Manage share" : "Share"}
-                            />
+                            <MessageUsageIndicator usage={getMessageMeta(message)?.usage} modelId={getMessageMeta(message)?.modelId || modelId} />
+                            <MessageAction icon={Copy01Icon} successIcon={Tick01Icon} successTooltip="Copied!" onClick={() => navigator.clipboard.writeText(text)} tooltip="Copy" />
                           </div>
                         )}
                       </div>
@@ -611,7 +556,207 @@ export function ChatMessagesVirtual({
             )
           })}
         </div>
-      </div>
+      ) : (
+        /* Normal virtualized rendering when NOT regenerating */
+        <div
+          className="relative w-full max-w-3xl mx-auto"
+          style={{ height: `${virtualizer.getTotalSize()}px` }}
+        >
+          <div className="p-6">
+            {virtualizer.getVirtualItems().map((virtualItem) => {
+              // Loading indicator
+              if (virtualItem.index >= messages.length) {
+                return (
+                  <div
+                    key="loading"
+                    className="absolute top-0 left-0 w-full px-6"
+                    style={{
+                      transform: `translateY(${virtualItem.start}px)`,
+                      height: `${virtualItem.size}px`,
+                    }}
+                  >
+                    <div className="flex flex-col gap-1.5 items-start">
+                      <div className="text-sm">
+                        <span className="text-foreground animate-pulse">●●●</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+
+              const message = messages[virtualItem.index]
+              const text = getMessageText(message)
+              const isUser = message.role === 'user'
+              const isLastAssistant =
+                virtualItem.index === messages.length - 1 && !isUser
+              const reasoningParts = getReasoningParts(message)
+              const hasReasoning = reasoningParts.length > 0
+              const reasoningSession = reasoningSessions[message.id]
+              const reasoningDurationSeconds =
+                reasoningSession?.endedAt && reasoningSession.startedAt
+                  ? Math.max(
+                    1,
+                    Math.round(
+                      (reasoningSession.endedAt - reasoningSession.startedAt) / 1000,
+                    ),
+                  )
+                  : null
+              const reasoningDurationLabel = reasoningDurationSeconds
+                ? formatThoughtDuration(reasoningDurationSeconds)
+                : null
+              const isReasoningStreaming = reasoningParts.some(
+                (part) => part.state === 'streaming',
+              )
+
+              // Determine if this message is being regenerated
+              const isBeingRegenerated = regeneratingMessageId === message.id
+
+              // During regeneration: show loading if no NEW content has arrived yet
+              // New content is detected when text length differs from captured original OR reasoning is streaming
+              const hasNewStreamingContent = isBeingRegenerated
+                ? (text.length !== regenerationOriginalLengthRef.current || isReasoningStreaming)
+                : false
+              const showRegenerationLoading = isBeingRegenerated && !hasNewStreamingContent
+
+              return (
+                <div
+                  key={message.id}
+                  data-index={virtualItem.index}
+                  ref={virtualizer.measureElement}
+                  className="absolute top-0 left-0 w-full px-6"
+                  style={{
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                >
+                  <div
+                    className={cn(
+                      'flex flex-col gap-1.5 py-3 group',
+                      isUser ? 'items-end' : 'items-start',
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        'rounded-md text-sm leading-relaxed',
+                        isUser
+                          ? 'bg-secondary px-3 py-2 text-foreground border border-secondary max-w-[85%]'
+                          : 'text-foreground w-full',
+                      )}
+                    >
+                      {isUser ? (
+                        <p className="whitespace-pre-wrap">{text}</p>
+                      ) : (
+                        <div className="flex flex-col gap-3">
+                          {/* Show reasoning button when message has reasoning (hide only when showing regeneration loading dots) */}
+                          {hasReasoning && !showRegenerationLoading && (
+                            <button
+                              type="button"
+                              onClick={() => openReasoning(message.id)}
+                              title="View reasoning"
+                              className="group inline-flex items-center gap-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                              <HugeiconsIcon
+                                icon={Loading03Icon}
+                                size={14}
+                                strokeWidth={2}
+                                className={cn(
+                                  'text-muted-foreground/60 transition-colors group-hover:text-foreground',
+                                  isReasoningStreaming && 'animate-spin',
+                                )}
+                              />
+                              {isReasoningStreaming ? (
+                                <span className="bg-linear-to-r from-foreground/40 via-foreground/90 to-foreground/40 bg-size-[200%_100%] bg-clip-text text-transparent animate-pulse">
+                                  Thinking
+                                </span>
+                              ) : (
+                                <span>
+                                  Thought for {reasoningDurationLabel ?? 'a moment'}
+                                </span>
+                              )}
+                            </button>
+                          )}
+                          {/* Show loading dots when regenerating and no new content yet */}
+                          {showRegenerationLoading ? (
+                            <div className="text-sm py-2">
+                              <span className="text-foreground animate-pulse">●●●</span>
+                            </div>
+                          ) : (
+                            <div
+                              className={cn(
+                                'prose prose-sm prose-invert max-w-none',
+                                (isLastAssistant || isBeingRegenerated) &&
+                                isStreaming &&
+                                '**:animate-in **:fade-in **:duration-150',
+                              )}
+                            >
+                              <Streamdown>{text}</Streamdown>
+                            </div>
+                          )}
+                          {/* Show action icons for completed messages - hide only for the message currently being streamed */}
+                          {/* During regeneration: hide only for isBeingRegenerated. During new streaming: hide only for isLastAssistant when isLoading */}
+                          {!(isBeingRegenerated || (isLoading && isLastAssistant && !regeneratingMessageId)) && (
+                            <div className="flex items-center gap-0.5">
+                              {(() => {
+                                const meta = getMessageMeta(message)
+                                return (
+                                  <MessageUsageIndicator
+                                    usage={meta?.usage}
+                                    modelId={meta?.modelId || modelId}
+                                  />
+                                )
+                              })()}
+                              <MessageAction
+                                icon={Copy01Icon}
+                                successIcon={Tick01Icon}
+                                successTooltip="Copied!"
+                                onClick={() => navigator.clipboard.writeText(text)}
+                                tooltip="Copy"
+                              />
+                              <MessageAction
+                                icon={Download01Icon}
+                                successIcon={Tick01Icon}
+                                successTooltip="Downloaded!"
+                                onClick={() => {
+                                  const blob = new Blob([text], { type: 'text/markdown' })
+                                  const url = URL.createObjectURL(blob)
+                                  const a = document.createElement('a')
+                                  a.href = url
+                                  a.download = `chat-${message.id.slice(0, 8)}.md`
+                                  document.body.appendChild(a)
+                                  a.click()
+                                  document.body.removeChild(a)
+                                  URL.revokeObjectURL(url)
+                                }}
+                                tooltip="Download"
+                              />
+                              <MessageAction
+                                icon={Refresh01Icon}
+                                onClick={() => onReload?.(message.id)}
+                                tooltip="Regenerate"
+                              />
+                              <MessageAction
+                                icon={sharedMessageMap?.has(message.id) ? Globe02Icon : Share01Icon}
+                                iconClassName={sharedMessageMap?.has(message.id) ? "text-emerald-500 hover:text-emerald-400" : undefined}
+                                onClick={() => {
+                                  // Find the user message before this assistant message
+                                  const msgIndex = messages.findIndex(m => m.id === message.id)
+                                  const userMessage = msgIndex > 0 ? messages[msgIndex - 1] : null
+                                  const userInput = userMessage ? getMessageText(userMessage) : ''
+                                  openShareDialog(message.id, userInput, text)
+                                }}
+                                tooltip={sharedMessageMap?.has(message.id) ? "Manage share" : "Share"}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Share Dialog */}
       <Dialog open={shareDialogOpen} onOpenChange={handleShareDialogOpenChange}>
@@ -627,11 +772,10 @@ export function ChatMessagesVirtual({
             <button
               onClick={() => handleShareModeChange('private')}
               disabled={isUpdatingShare}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                shareMode === 'private'
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:bg-accent/50'
-              } disabled:opacity-50`}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${shareMode === 'private'
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:bg-accent/50'
+                } disabled:opacity-50`}
             >
               <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
                 <HugeiconsIcon icon={LockIcon} size={18} strokeWidth={2} className="text-muted-foreground" />
@@ -653,11 +797,10 @@ export function ChatMessagesVirtual({
             <button
               onClick={() => handleShareModeChange('public')}
               disabled={isUpdatingShare}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                shareMode === 'public'
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:bg-accent/50'
-              } disabled:opacity-50`}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${shareMode === 'public'
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:bg-accent/50'
+                } disabled:opacity-50`}
             >
               <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
                 <HugeiconsIcon icon={Globe02Icon} size={18} strokeWidth={2} className="text-muted-foreground" />
@@ -707,7 +850,7 @@ export function ChatMessagesVirtual({
       </Dialog>
 
       <Sheet open={reasoningOpen} onOpenChange={setReasoningOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md">
+        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col overflow-hidden">
           <SheetHeader className="pb-2">
             <SheetTitle>
               {selectedReasoningStreaming
@@ -723,7 +866,7 @@ export function ChatMessagesVirtual({
             </SheetDescription>
           </SheetHeader>
           <Separator />
-          <ScrollArea className="flex-1 px-4 pb-4">
+          <ScrollArea className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
             {selectedReasoningBlocks.length > 0 ? (
               <div className="flex flex-col gap-4 py-4">
                 {selectedReasoningBlocks.map((block, index) => {
