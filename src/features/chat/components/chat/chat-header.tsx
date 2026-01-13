@@ -4,8 +4,16 @@ import { sharedKeys } from '@/features/chat/data/queries'
 import { Button } from '@/components/ui/button'
 import { useSidebar } from '@/components/ui/sidebar'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Share01Icon, SidebarLeftIcon, LockIcon, Globe02Icon, Copy01Icon, Tick02Icon, Loading03Icon } from '@hugeicons/core-free-icons'
-import { ConversationActionsDropdown } from './conversation-actions-dropdown'
+import {
+  Share01Icon,
+  SidebarLeftIcon,
+  LockIcon,
+  Globe02Icon,
+  Copy01Icon,
+  Tick02Icon,
+  Loading03Icon,
+} from '@hugeicons/core-free-icons'
+import { ConversationActionsDropdown } from '../conversations'
 import type { Conversation } from '@/lib/indexeddb'
 import {
   Dialog,
@@ -40,7 +48,9 @@ export function ChatHeader({
   const [copied, setCopied] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
 
-  const shareUrl = conversation ? `${window.location.origin}/share/${conversation.id}` : ''
+  const shareUrl = conversation
+    ? `${window.location.origin}/share/${conversation.id}`
+    : ''
 
   // Initialize share mode based on conversation's current isPublic state
   useEffect(() => {
@@ -113,11 +123,11 @@ export function ChatHeader({
             </h1>
             {conversation?.isPublic && (
               <span title="This conversation is shared publicly">
-                <HugeiconsIcon 
-                  icon={Globe02Icon} 
-                  size={14} 
-                  strokeWidth={2} 
-                  className="text-emerald-500 shrink-0" 
+                <HugeiconsIcon
+                  icon={Globe02Icon}
+                  size={14}
+                  strokeWidth={2}
+                  className="text-emerald-500 shrink-0"
                 />
               </span>
             )}
@@ -169,15 +179,28 @@ export function ChatHeader({
               } disabled:opacity-50`}
             >
               <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
-                <HugeiconsIcon icon={LockIcon} size={18} strokeWidth={2} className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={LockIcon}
+                  size={18}
+                  strokeWidth={2}
+                  className="text-muted-foreground"
+                />
               </div>
               <div className="flex-1 text-left">
                 <div className="text-sm font-medium">Private</div>
-                <div className="text-xs text-muted-foreground">Only you have access</div>
+                <div className="text-xs text-muted-foreground">
+                  Only you have access
+                </div>
               </div>
               {shareMode === 'private' && (
                 <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                  <svg className="w-3 h-3 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <svg
+                    className="w-3 h-3 text-primary-foreground"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                  >
                     <path d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
@@ -195,18 +218,36 @@ export function ChatHeader({
               } disabled:opacity-50`}
             >
               <div className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
-                <HugeiconsIcon icon={Globe02Icon} size={18} strokeWidth={2} className="text-muted-foreground" />
+                <HugeiconsIcon
+                  icon={Globe02Icon}
+                  size={18}
+                  strokeWidth={2}
+                  className="text-muted-foreground"
+                />
               </div>
               <div className="flex-1 text-left">
                 <div className="text-sm font-medium">Public access</div>
-                <div className="text-xs text-muted-foreground">Anyone with the link can view</div>
+                <div className="text-xs text-muted-foreground">
+                  Anyone with the link can view
+                </div>
               </div>
               {shareMode === 'public' && (
                 <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
                   {isUpdating ? (
-                    <HugeiconsIcon icon={Loading03Icon} size={12} strokeWidth={2} className="text-primary-foreground animate-spin" />
+                    <HugeiconsIcon
+                      icon={Loading03Icon}
+                      size={12}
+                      strokeWidth={2}
+                      className="text-primary-foreground animate-spin"
+                    />
                   ) : (
-                    <svg className="w-3 h-3 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <svg
+                      className="w-3 h-3 text-primary-foreground"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                    >
                       <path d="M5 13l4 4L19 7" />
                     </svg>
                   )}
@@ -216,7 +257,8 @@ export function ChatHeader({
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Don't share personal information or third-party content without permission.
+            Don't share personal information or third-party content without
+            permission.
           </p>
 
           <DialogFooter>
@@ -227,12 +269,22 @@ export function ChatHeader({
             >
               {copied ? (
                 <>
-                  <HugeiconsIcon icon={Tick02Icon} size={16} strokeWidth={2} className="mr-1.5" />
+                  <HugeiconsIcon
+                    icon={Tick02Icon}
+                    size={16}
+                    strokeWidth={2}
+                    className="mr-1.5"
+                  />
                   Copied!
                 </>
               ) : (
                 <>
-                  <HugeiconsIcon icon={Copy01Icon} size={16} strokeWidth={2} className="mr-1.5" />
+                  <HugeiconsIcon
+                    icon={Copy01Icon}
+                    size={16}
+                    strokeWidth={2}
+                    className="mr-1.5"
+                  />
                   Create share link
                 </>
               )}

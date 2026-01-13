@@ -1,8 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useAppStore } from '@/stores/app-store'
 import { useCallback, useState, useRef } from 'react'
-import { ChatEmptyState } from '@/features/chat/components/chat-empty-state'
-import { ChatInput } from '@/features/chat/components/chat-input'
+import { ChatEmptyState, ChatInput } from '@/features/chat/components'
 import { useSidebar } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -28,7 +27,12 @@ function NewChatPage() {
   const setPendingNewChat = useAppStore((state) => state.setPendingNewChat)
 
   // Sidebar toggle for mobile or when sidebar is collapsed
-  const { state: sidebarState, toggleSidebar, isMobile, openMobile } = useSidebar()
+  const {
+    state: sidebarState,
+    toggleSidebar,
+    isMobile,
+    openMobile,
+  } = useSidebar()
   const showToggle = isMobile ? !openMobile : sidebarState === 'collapsed'
 
   const handleSubmit = useCallback(
@@ -60,14 +64,25 @@ function NewChatPage() {
 
         // 3. Set as active and navigate - /chat/$id will handle the rest
         setActiveConversationId(conversationId)
-        navigate({ to: '/chat/$id', params: { id: conversationId }, replace: true })
+        navigate({
+          to: '/chat/$id',
+          params: { id: conversationId },
+          replace: true,
+        })
       } catch (error) {
         console.error('Failed to create conversation:', error)
         hasSubmitted.current = false
         setIsSubmitting(false)
       }
     },
-    [input, isSubmitting, addConversation, setActiveConversationId, setPendingNewChat, navigate],
+    [
+      input,
+      isSubmitting,
+      addConversation,
+      setActiveConversationId,
+      setPendingNewChat,
+      navigate,
+    ],
   )
 
   return (
@@ -75,9 +90,7 @@ function NewChatPage() {
       {/* Sidebar toggle when sidebar is collapsed or on mobile */}
       <div
         className={`absolute top-3 left-4 z-10 transition-opacity duration-150 ${
-          showToggle
-            ? 'opacity-100 delay-200'
-            : 'opacity-0 pointer-events-none'
+          showToggle ? 'opacity-100 delay-200' : 'opacity-0 pointer-events-none'
         }`}
       >
         <Button

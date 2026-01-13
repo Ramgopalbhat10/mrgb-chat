@@ -29,7 +29,7 @@ import { Link, useLocation } from '@tanstack/react-router'
 import type { Conversation } from '@/lib/indexeddb'
 import { useAppStore } from '@/stores/app-store'
 import { useAuth } from '@/providers/auth-provider'
-import { ConversationActionsDropdown } from '@/features/chat/components/conversation-actions-dropdown'
+import { ConversationActionsDropdown } from '@/features/chat/components'
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
 import { useSidebar } from './ui/sidebar'
 
@@ -60,11 +60,14 @@ export function AppSidebar({
     }
   }
   const isChatsRoute = location.pathname === '/chats'
-  const isProjectsRoute = location.pathname === '/projects' || location.pathname.startsWith('/project/')
+  const isProjectsRoute =
+    location.pathname === '/projects' ||
+    location.pathname.startsWith('/project/')
   const isSharedRoute = location.pathname === '/shared'
-  
+
   // Don't highlight conversations when on /chats, /projects, /shared routes
-  const isOnConversationRoute = location.pathname.startsWith('/chat/') || location.pathname === '/new'
+  const isOnConversationRoute =
+    location.pathname.startsWith('/chat/') || location.pathname === '/new'
   return (
     <Sidebar className="border-r-0">
       <SidebarHeader className="h-10 px-4 flex flex-row items-center justify-between border-b border-sidebar-border/50">
@@ -188,61 +191,76 @@ export function AppSidebar({
                   No conversations yet
                 </div>
               ) : (
-                conversations.filter((c) => !c.archived).map((conversation) => {
-                  const titleLoading = titleLoadingIds.has(conversation.id)
-                  // Only highlight conversation if we're on a conversation route
-                  const isActive = isOnConversationRoute && conversation.id === activeConversationId
-                  return (
-                    <SidebarMenuItem
-                      key={conversation.id}
-                      className="group/item p-0.5 relative"
-                    >
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={(triggerProps) => (
-                            <SidebarMenuButton
-                              {...triggerProps}
-                              isActive={isActive}
-                              onClick={() => onSelectConversation(conversation.id)}
-                              className="w-full h-8 px-3 pr-8 text-sm font-normal text-sidebar-foreground hover:text-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-foreground focus-visible:ring-primary/50 focus-visible:ring-offset-0"
-                            >
-                              {conversation.starred && (
-                                <HugeiconsIcon
-                                  icon={StarIcon}
-                                  size={12}
-                                  strokeWidth={2}
-                                  className="text-yellow-500 shrink-0"
-                                />
-                              )}
-                              {titleLoading ? (
-                                <span className="flex-1 h-3 bg-muted/50 rounded animate-pulse" />
-                              ) : (
-                                <span className="truncate">{conversation.title}</span>
-                              )}
-                            </SidebarMenuButton>
-                          )}
-                        />
-                        <TooltipContent side="right" className="bg-secondary text-secondary-foreground max-w-xs">
-                          {conversation.title}
-                        </TooltipContent>
-                      </Tooltip>
-                      {/* Three dots menu - always visible on mobile, hover on desktop */}
-                      <div
-                        className={`absolute right-1 top-1/2 -translate-y-1/2 ${
-                          isMobile ? 'opacity-100' : `opacity-0 group-hover/item:opacity-100 ${isActive ? 'opacity-100' : ''}`
-                        } transition-opacity`}
-                        onClick={(e) => e.stopPropagation()}
+                conversations
+                  .filter((c) => !c.archived)
+                  .map((conversation) => {
+                    const titleLoading = titleLoadingIds.has(conversation.id)
+                    // Only highlight conversation if we're on a conversation route
+                    const isActive =
+                      isOnConversationRoute &&
+                      conversation.id === activeConversationId
+                    return (
+                      <SidebarMenuItem
+                        key={conversation.id}
+                        className="group/item p-0.5 relative"
                       >
-                        <ConversationActionsDropdown
-                          conversation={conversation}
-                          side="right"
-                          align="start"
-                          onDeleted={() => handleConversationDeleted(conversation.id)}
-                        />
-                      </div>
-                    </SidebarMenuItem>
-                  )
-                })
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={(triggerProps) => (
+                              <SidebarMenuButton
+                                {...triggerProps}
+                                isActive={isActive}
+                                onClick={() =>
+                                  onSelectConversation(conversation.id)
+                                }
+                                className="w-full h-8 px-3 pr-8 text-sm font-normal text-sidebar-foreground hover:text-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-foreground focus-visible:ring-primary/50 focus-visible:ring-offset-0"
+                              >
+                                {conversation.starred && (
+                                  <HugeiconsIcon
+                                    icon={StarIcon}
+                                    size={12}
+                                    strokeWidth={2}
+                                    className="text-yellow-500 shrink-0"
+                                  />
+                                )}
+                                {titleLoading ? (
+                                  <span className="flex-1 h-3 bg-muted/50 rounded animate-pulse" />
+                                ) : (
+                                  <span className="truncate">
+                                    {conversation.title}
+                                  </span>
+                                )}
+                              </SidebarMenuButton>
+                            )}
+                          />
+                          <TooltipContent
+                            side="right"
+                            className="bg-secondary text-secondary-foreground max-w-xs"
+                          >
+                            {conversation.title}
+                          </TooltipContent>
+                        </Tooltip>
+                        {/* Three dots menu - always visible on mobile, hover on desktop */}
+                        <div
+                          className={`absolute right-1 top-1/2 -translate-y-1/2 ${
+                            isMobile
+                              ? 'opacity-100'
+                              : `opacity-0 group-hover/item:opacity-100 ${isActive ? 'opacity-100' : ''}`
+                          } transition-opacity`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ConversationActionsDropdown
+                            conversation={conversation}
+                            side="right"
+                            align="start"
+                            onDeleted={() =>
+                              handleConversationDeleted(conversation.id)
+                            }
+                          />
+                        </div>
+                      </SidebarMenuItem>
+                    )
+                  })
               )}
             </SidebarMenu>
           </SidebarGroupContent>

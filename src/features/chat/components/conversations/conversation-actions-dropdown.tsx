@@ -42,7 +42,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { useAppStore } from '@/stores/app-store'
 import type { Conversation } from '@/lib/indexeddb'
-import { projectKeys, projectsQueryOptions, sharedKeys } from '../data/queries'
+import { projectKeys, projectsQueryOptions, sharedKeys } from '../../data/queries'
 
 interface Project {
   id: string

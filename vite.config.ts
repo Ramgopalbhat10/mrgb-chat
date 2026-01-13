@@ -17,6 +17,12 @@ const config = defineConfig({
     tanstackStart(),
     viteReact(),
   ],
+  ssr: {
+    // Bundle lobehub packages and their emoji-mart dependencies for SSR
+    // These packages use directory imports and JSON without import attributes
+    // which don't work with Node's native ESM resolver
+    noExternal: [/^@lobehub\//, /emoji-mart/],
+  },
 })
 
 export default config

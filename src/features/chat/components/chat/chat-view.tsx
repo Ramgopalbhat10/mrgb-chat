@@ -12,7 +12,11 @@ import { useSidebar } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { SidebarLeftIcon } from '@hugeicons/core-free-icons'
-import { availableModelsQueryOptions, sharedItemsQueryOptions, sharedKeys } from '@/features/chat/data/queries'
+import {
+  availableModelsQueryOptions,
+  sharedItemsQueryOptions,
+  sharedKeys,
+} from '@/features/chat/data/queries'
 import * as db from '@/lib/indexeddb'
 import type { UIMessage } from 'ai'
 import type { ModelMetadata } from '@/features/chat/data/queries'
@@ -41,10 +45,10 @@ export function ChatView({
   const queryClient = useQueryClient()
 
   // Track which message is being regenerated (null when not regenerating)
-  const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null)
+  const [regeneratingMessageId, setRegeneratingMessageId] = useState<
+    string | null
+  >(null)
   const regeneratingMessageIdRef = useRef<string | null>(null)
-  const [regenerationTail, setRegenerationTail] = useState<UIMessage[] | null>(null)
-  const regenerationTailRef = useRef<UIMessage[] | null>(null)
 
   const conversation = conversations.find((c) => c.id === conversationId)
   const title = conversation?.title
@@ -78,7 +82,10 @@ export function ChatView({
   // Model metadata - moved up to be available for persistMessage
   const { data: models = [] } = useQuery(availableModelsQueryOptions())
   const selectedModelMetadata = useMemo(
-    () => models.find((m: ModelMetadata) => m.id === (conversation as any)?.modelId) || models[0],
+    () =>
+      models.find(
+        (m: ModelMetadata) => m.id === (conversation as any)?.modelId,
+      ) || models[0],
     [models, conversation],
   )
 
@@ -95,7 +102,8 @@ export function ChatView({
     if (message.parts && message.parts.length > 0) {
       return message.parts
         .filter(
-          (part): part is { type: 'text'; text: string } => part.type === 'text',
+          (part): part is { type: 'text'; text: string } =>
+            part.type === 'text',
         )
         .map((part) => part.text)
         .join('')
@@ -121,9 +129,15 @@ export function ChatView({
 
     // Fallback: check annotations (older API versions)
     if (msg.annotations) {
-      const usageAnnotation = msg.annotations.find((a: any) => a.type === 'usage' || a.usage)
+      const usageAnnotation = msg.annotations.find(
+        (a: any) => a.type === 'usage' || a.usage,
+      )
       if (usageAnnotation?.usage) {
-        return { usage: usageAnnotation.usage, modelId: undefined, gatewayCost: undefined }
+        return {
+          usage: usageAnnotation.usage,
+          modelId: undefined,
+          gatewayCost: undefined,
+        }
       }
     }
 
@@ -138,22 +152,36 @@ export function ChatView({
       if (!content) return
 
       // Extract usage metadata for assistant messages (from message.metadata set by API)
-      const meta = message.role === 'assistant' ? getMessageMeta(message) : undefined
+      const meta =
+        message.role === 'assistant' ? getMessageMeta(message) : undefined
 
       // Extract reasoning parts to persist them
       const reasoningParts = message.parts
         ?.filter((part) => part.type === 'reasoning')
-        .map(part => {
-          const reasoningPart = part as { type: 'reasoning'; text: string; state?: 'streaming' | 'done' }
-          return { type: 'reasoning' as const, text: reasoningPart.text, state: 'done' as const }
+        .map((part) => {
+          const reasoningPart = part as {
+            type: 'reasoning'
+            text: string
+            state?: 'streaming' | 'done'
+          }
+          return {
+            type: 'reasoning' as const,
+            text: reasoningPart.text,
+            state: 'done' as const,
+          }
         })
 
-      const metaJson = (meta?.usage || (reasoningParts && reasoningParts.length > 0)) ? JSON.stringify({
-        usage: meta?.usage,
-        modelId: meta?.modelId,
-        gatewayCost: meta?.gatewayCost,
-        reasoningParts: reasoningParts?.length ? reasoningParts : undefined,
-      }) : null
+      const metaJson =
+        meta?.usage || (reasoningParts && reasoningParts.length > 0)
+          ? JSON.stringify({
+              usage: meta?.usage,
+              modelId: meta?.modelId,
+              gatewayCost: meta?.gatewayCost,
+              reasoningParts: reasoningParts?.length
+                ? reasoningParts
+                : undefined,
+            })
+          : null
 
       // console.log('Persisting message:', { id: message.id, role: message.role, contentLength: content.length, meta })
 
@@ -162,13 +190,18 @@ export function ChatView({
           if (regeneratingMessageIdRef.current !== message.id) return
 
           // Update existing message during regeneration
-          await db.updateMessage(message.id, { content, metaJson }).catch(console.error)
+          await db
+            .updateMessage(message.id, { content, metaJson })
+            .catch(console.error)
 
-          fetch(`/api/conversations/${conversationId}/messages?messageId=${message.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content, metaJson }),
-          }).catch(console.error)
+          fetch(
+            `/api/conversations/${conversationId}/messages?messageId=${message.id}`,
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content, metaJson }),
+            },
+          ).catch(console.error)
 
           return
         }
@@ -197,7 +230,11 @@ export function ChatView({
         })
           .then((res) => {
             if (!res.ok)
-              console.error('Server persistence failed:', res.status, res.statusText)
+              console.error(
+                'Server persistence failed:',
+                res.status,
+                res.statusText,
+              )
           })
           .catch((error) => {
             console.error('Failed to persist message to server:', error)
@@ -219,126 +256,169 @@ export function ChatView({
     },
   })
 
-  const { messages: chatMessages, sendMessage, status, setMessages, regenerate } = chatResult as any
-  const displayMessages = useMemo(
-    () => {
-      if (!regenerationTail?.length) return chatMessages
-      const existingIds = new Set(chatMessages.map((message: UIMessage) => message.id))
-      const dedupedTail = regenerationTail.filter(
-        (message) => !existingIds.has(message.id),
-      )
-      return [...chatMessages, ...dedupedTail]
-    },
-    [chatMessages, regenerationTail],
-  )
+  const {
+    messages: chatMessages,
+    sendMessage,
+    status,
+    setMessages,
+    regenerate,
+  } = chatResult as any
 
   // Share a specific message - creates a public shareable link
-  const handleShareMessage = useCallback(async (messageId: string, userInput: string, response: string): Promise<string | null> => {
-    try {
-      const res = await fetch('/api/share', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messageId,
-          conversationId,
-          userInput,
-          response,
-          modelId: selectedModelMetadata?.id,
-        }),
-      })
+  const handleShareMessage = useCallback(
+    async (
+      messageId: string,
+      userInput: string,
+      response: string,
+    ): Promise<string | null> => {
+      try {
+        const res = await fetch('/api/share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messageId,
+            conversationId,
+            userInput,
+            response,
+            modelId: selectedModelMetadata?.id,
+          }),
+        })
 
-      if (!res.ok) {
-        console.error('Failed to create share link')
+        if (!res.ok) {
+          console.error('Failed to create share link')
+          return null
+        }
+
+        const data = await res.json()
+        // Refetch shared items to update the map
+        queryClient.invalidateQueries({ queryKey: sharedKeys.items() })
+        return data.url
+      } catch (error) {
+        console.error('Error sharing message:', error)
         return null
       }
-
-      const data = await res.json()
-      // Refetch shared items to update the map
-      queryClient.invalidateQueries({ queryKey: sharedKeys.items() })
-      return data.url
-    } catch (error) {
-      console.error('Error sharing message:', error)
-      return null
-    }
-  }, [conversationId, selectedModelMetadata, queryClient])
+    },
+    [conversationId, selectedModelMetadata, queryClient],
+  )
 
   // Unshare a message - removes the public shareable link
-  const handleUnshareMessage = useCallback(async (shareId: string): Promise<boolean> => {
-    try {
-      const res = await fetch(`/api/share?id=${shareId}`, {
-        method: 'DELETE',
-      })
+  const handleUnshareMessage = useCallback(
+    async (shareId: string): Promise<boolean> => {
+      try {
+        const res = await fetch(`/api/share?id=${shareId}`, {
+          method: 'DELETE',
+        })
 
-      if (!res.ok) {
-        console.error('Failed to delete share link')
+        if (!res.ok) {
+          console.error('Failed to delete share link')
+          return false
+        }
+
+        // Refetch shared items to update the map
+        queryClient.invalidateQueries({ queryKey: sharedKeys.items() })
+        return true
+      } catch (error) {
+        console.error('Error unsharing message:', error)
         return false
       }
-
-      // Refetch shared items to update the map
-      queryClient.invalidateQueries({ queryKey: sharedKeys.items() })
-      return true
-    } catch (error) {
-      console.error('Error unsharing message:', error)
-      return false
-    }
-  }, [queryClient])
+    },
+    [queryClient],
+  )
 
   // Reload/regenerate function - uses AI SDK regenerate for in-place updates
-  const handleRegenerate = useCallback(async (assistantMessageId: string) => {
-    // Find the assistant message being regenerated
-    const assistantIndex = chatMessages.findIndex((m: any) => m.id === assistantMessageId)
-    if (assistantIndex === -1) return
+  const handleRegenerate = useCallback(
+    async (assistantMessageId: string) => {
+      // Find the assistant message being regenerated
+      const assistantIndex = chatMessages.findIndex(
+        (m: any) => m.id === assistantMessageId,
+      )
+      if (assistantIndex === -1) return
 
-    // 1. Set regenerating state to show loading UI
-    setRegeneratingMessageId(assistantMessageId)
-    regeneratingMessageIdRef.current = assistantMessageId
+      const tailMessages: UIMessage[] = chatMessages.slice(assistantIndex + 1)
+      if (tailMessages.length > 0) {
+        setMessages((current: UIMessage[]) => {
+          const index = current.findIndex((m) => m.id === assistantMessageId)
+          if (index === -1) return current
+          return current.slice(0, index + 1)
+        })
 
-    // 2. If shared, unshare first
-    const shareId = sharedMessageMap.get(assistantMessageId)
-    if (shareId) {
-      await handleUnshareMessage(shareId)
-    }
+        for (const message of tailMessages) {
+          persistedMessageIds.current.delete(message.id)
+        }
 
-    try {
-      // Keep tail messages visible while regenerate trims history
-      const tailMessages = chatMessages.slice(assistantIndex + 1)
-      regenerationTailRef.current = tailMessages.length ? tailMessages : null
-      setRegenerationTail(tailMessages.length ? tailMessages : null)
+        void (async () => {
+          await Promise.allSettled(
+            tailMessages.map((message) =>
+              db.deleteMessage(message.id).catch((error) => {
+                console.error('Failed to delete message from IndexedDB:', error)
+              }),
+            ),
+          )
 
-      await regenerate({
-        messageId: assistantMessageId,
-        body: {
-          modelId: conversation?.modelId ?? selectedModelMetadata?.id,
-        },
-      })
-    } catch (error) {
-      console.error('Error regenerating response:', error)
-    } finally {
-      const tailMessages = regenerationTailRef.current
-      if (tailMessages?.length) {
-        setMessages((current: any[]) => {
-          const existingIds = new Set(current.map((m) => m.id))
-          const dedupedTail = tailMessages.filter((m) => !existingIds.has(m.id))
-          return [...current, ...dedupedTail]
+          await Promise.allSettled(
+            tailMessages.map((message) =>
+              fetch(
+                `/api/conversations/${conversationId}/messages?messageId=${message.id}`,
+                {
+                  method: 'DELETE',
+                },
+              ).catch((error) => {
+                console.error('Failed to delete message from server:', error)
+              }),
+            ),
+          )
+
+          queryClient.invalidateQueries({ queryKey: sharedKeys.items() })
+        })()
+      }
+
+      if (tailMessages.length > 0) {
+        await new Promise<void>((resolve) => {
+          if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+          } else {
+            setTimeout(resolve, 0)
+          }
         })
       }
 
-      regenerationTailRef.current = null
-      setRegenerationTail(null)
+      // 1. Set regenerating state to show loading UI
+      setRegeneratingMessageId(assistantMessageId)
+      regeneratingMessageIdRef.current = assistantMessageId
 
-      // Clear regenerating state when done (success or error)
-      setRegeneratingMessageId(null)
-      regeneratingMessageIdRef.current = null
-    }
-  }, [
-    chatMessages,
-    conversation?.modelId,
-    selectedModelMetadata?.id,
-    regenerate,
-    setMessages,
-    sharedMessageMap,
-    handleUnshareMessage,
-  ])
+      // 2. If shared, unshare first
+      const shareId = sharedMessageMap.get(assistantMessageId)
+      if (shareId) {
+        await handleUnshareMessage(shareId)
+      }
+
+      try {
+        await regenerate({
+          messageId: assistantMessageId,
+          body: {
+            modelId: conversation?.modelId ?? selectedModelMetadata?.id,
+          },
+        })
+      } catch (error) {
+        console.error('Error regenerating response:', error)
+      } finally {
+        // Clear regenerating state when done (success or error)
+        setRegeneratingMessageId(null)
+        regeneratingMessageIdRef.current = null
+      }
+    },
+    [
+      chatMessages,
+      conversation?.modelId,
+      selectedModelMetadata?.id,
+      regenerate,
+      setMessages,
+      sharedMessageMap,
+      handleUnshareMessage,
+      conversationId,
+      queryClient,
+    ],
+  )
 
   // User messages are persisted manually in handleSubmit for reliability
   // This ensures they're saved before any re-renders or navigation
@@ -395,12 +475,12 @@ export function ChatView({
   }, [pendingMessage, conversationId, sendMessage])
 
   const isLoading = status === 'streaming' || status === 'submitted'
-  const hasMessages = displayMessages.length > 0
+  const hasMessages = chatMessages.length > 0
 
   // Debug: log messages and status changes
   // useEffect(() => {
-  //   console.log('useChat state:', { 
-  //     status, 
+  //   console.log('useChat state:', {
+  //     status,
   //     messageCount: chatMessages.length,
   //     messages: chatMessages.map((m: any) => ({ id: m.id, role: m.role, partsCount: m.parts?.length }))
   //   })
@@ -411,7 +491,7 @@ export function ChatView({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [displayMessages])
+  }, [chatMessages])
 
   const handleSubmit = async (e: React.FormEvent, modelId?: string) => {
     e.preventDefault()
@@ -462,8 +542,15 @@ export function ChatView({
   const showHeader = true
 
   // Get sidebar state for toggle button (mobile or collapsed)
-  const { state: sidebarState, toggleSidebar, isMobile, openMobile } = useSidebar()
-  const showSidebarToggle = isMobile ? !openMobile : sidebarState === 'collapsed'
+  const {
+    state: sidebarState,
+    toggleSidebar,
+    isMobile,
+    openMobile,
+  } = useSidebar()
+  const showSidebarToggle = isMobile
+    ? !openMobile
+    : sidebarState === 'collapsed'
 
   return (
     <div className="flex flex-col h-full bg-background relative">
@@ -479,10 +566,11 @@ export function ChatView({
         // Sidebar toggle - absolutely positioned to avoid layout shift
         // Uses CSS transition delay to wait for sidebar close animation
         <div
-          className={`absolute top-3 left-4 z-10 transition-opacity duration-150 ${showSidebarToggle
-            ? 'opacity-100 delay-200'
-            : 'opacity-0 pointer-events-none delay-0'
-            }`}
+          className={`absolute top-3 left-4 z-10 transition-opacity duration-150 ${
+            showSidebarToggle
+              ? 'opacity-100 delay-200'
+              : 'opacity-0 pointer-events-none delay-0'
+          }`}
         >
           <Button
             variant="ghost"
@@ -500,7 +588,7 @@ export function ChatView({
         </div>
       ) : (
         <ChatMessagesVirtual
-          messages={displayMessages}
+          messages={chatMessages}
           isLoading={isLoading || !!regeneratingMessageId}
           regeneratingMessageId={regeneratingMessageId}
           onReload={handleRegenerate}
@@ -516,7 +604,7 @@ export function ChatView({
         onInputChange={setInput}
         onSubmit={handleSubmit}
         isLoading={isLoading}
-        messages={displayMessages}
+        messages={chatMessages}
         defaultModelId={conversation?.modelId}
       />
     </div>
