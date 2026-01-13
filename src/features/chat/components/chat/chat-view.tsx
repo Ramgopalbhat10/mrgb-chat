@@ -420,6 +420,53 @@ export function ChatView({
     ],
   )
 
+  // Edit user message and regenerate - finds the next assistant message and regenerates with new content
+  const handleEditMessage = useCallback(
+    async (userMessageId: string, newContent: string) => {
+      // Find the user message being edited
+      const userIndex = chatMessages.findIndex(
+        (m: any) => m.id === userMessageId,
+      )
+      if (userIndex === -1) return
+
+      // Update the user message content in state
+      setMessages((current: UIMessage[]) => {
+        const newMessages = [...current]
+        const index = newMessages.findIndex((m) => m.id === userMessageId)
+        if (index !== -1) {
+          newMessages[index] = {
+            ...newMessages[index],
+            content: newContent,
+            parts: [{ type: 'text', text: newContent }],
+          } as any
+        }
+        return newMessages
+      })
+
+      // Update in IndexedDB and server
+      db.updateMessage(userMessageId, { content: newContent }).catch(console.error)
+      fetch(
+        `/api/conversations/${conversationId}/messages?messageId=${userMessageId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: newContent }),
+        },
+      ).catch(console.error)
+
+      // Find the next assistant message (the one we need to regenerate)
+      const assistantMessage = chatMessages[userIndex + 1]
+      if (assistantMessage && assistantMessage.role === 'assistant') {
+        // Regenerate the assistant response
+        await handleRegenerate(assistantMessage.id)
+      } else {
+        // No assistant message after this user message - send to AI to get a new response
+        sendMessage({ text: newContent })
+      }
+    },
+    [chatMessages, conversationId, setMessages, sendMessage, handleRegenerate],
+  )
+
   // User messages are persisted manually in handleSubmit for reliability
   // This ensures they're saved before any re-renders or navigation
 
@@ -592,6 +639,7 @@ export function ChatView({
           isLoading={isLoading || !!regeneratingMessageId}
           regeneratingMessageId={regeneratingMessageId}
           onReload={handleRegenerate}
+          onEditMessage={handleEditMessage}
           onShareMessage={handleShareMessage}
           onUnshareMessage={handleUnshareMessage}
           sharedMessageMap={sharedMessageMap}

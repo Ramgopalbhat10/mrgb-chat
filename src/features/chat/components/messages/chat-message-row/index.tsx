@@ -6,9 +6,13 @@ import {
   Tick01Icon,
   Globe02Icon,
   Loading03Icon,
+  ArrowDown01Icon,
+  PencilEdit01Icon,
+  Cancel01Icon,
+  SentIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -18,6 +22,7 @@ import {
 import { MessageUsageIndicator } from '../message-usage'
 import { cn } from '@/lib/utils'
 import { Streamdown } from 'streamdown'
+import { CollapsibleCodeBlocks } from '@/components/collapsible-code-blocks'
 import type { UIMessage } from 'ai'
 import {
   formatThoughtDuration,
@@ -103,6 +108,7 @@ export interface ChatMessageRowProps {
     userInput: string,
     response: string,
   ) => void
+  onEditMessage?: (messageId: string, newContent: string) => void
 }
 
 export function ChatMessageRow({
@@ -120,6 +126,7 @@ export function ChatMessageRow({
   onOpenReasoning,
   onReload,
   onOpenShareDialog,
+  onEditMessage,
 }: ChatMessageRowProps) {
   const text = getMessageText(message)
   const isUser = message.role === 'user'
@@ -151,6 +158,55 @@ export function ChatMessageRow({
     (isLoading && isLastAssistant && !regeneratingMessageId)
   const meta = getMessageMeta(message)
 
+  // User message state
+  const [isUserMessageExpanded, setIsUserMessageExpanded] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editText, setEditText] = useState(text)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const userMessageRef = useRef<HTMLDivElement>(null)
+  const messageContainerRef = useRef<HTMLDivElement>(null)
+  const [needsCollapse, setNeedsCollapse] = useState(false)
+  const [editWidth, setEditWidth] = useState<number | null>(null)
+
+  const USER_MESSAGE_COLLAPSED_HEIGHT = 120 // pixels
+
+  // Check if user message needs collapse
+  useEffect(() => {
+    if (isUser && userMessageRef.current) {
+      const checkHeight = () => {
+        const el = userMessageRef.current
+        if (el) {
+          setNeedsCollapse(el.scrollHeight > USER_MESSAGE_COLLAPSED_HEIGHT + 20)
+        }
+      }
+      checkHeight()
+      // Recheck after fonts load
+      const timeout = setTimeout(checkHeight, 100)
+      return () => clearTimeout(timeout)
+    }
+  }, [isUser, text])
+
+  // Auto-resize textarea when editing
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+      textareaRef.current.focus()
+      // Move cursor to end
+      textareaRef.current.setSelectionRange(editText.length, editText.length)
+    }
+  }, [isEditing, editText])
+
+  const handleEditCancel = () => {
+    setIsEditing(false)
+    setEditText(text)
+  }
+
+  const handleEditSend = () => {
+    setIsEditing(false)
+    onEditMessage?.(message.id, editText)
+  }
+
   return (
     <div id={messageAnchorId(message.id)} className="px-6">
       <div
@@ -166,9 +222,84 @@ export function ChatMessageRow({
               ? 'bg-secondary px-3 py-2 text-foreground border border-secondary max-w-[85%]'
               : 'text-foreground w-full',
           )}
+          ref={isUser ? messageContainerRef : undefined}
+          style={isUser && isEditing && editWidth ? { width: editWidth } : undefined}
         >
           {isUser ? (
-            <p className="whitespace-pre-wrap">{text}</p>
+            isEditing ? (
+              <div className="flex flex-col gap-2">
+                <textarea
+                  ref={textareaRef}
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  className="w-full bg-transparent border-none outline-none resize-none text-sm leading-relaxed text-foreground placeholder:text-muted-foreground"
+                  placeholder="Edit your message..."
+                  rows={1}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleEditSend()
+                    }
+                    if (e.key === 'Escape') {
+                      handleEditCancel()
+                    }
+                  }}
+                />
+                <div className="flex items-center justify-end gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleEditCancel}
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  >
+                    <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={2} />
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="icon"
+                    onClick={handleEditSend}
+                    className="h-7 w-7"
+                  >
+                    <HugeiconsIcon icon={SentIcon} size={14} strokeWidth={2} />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="relative">
+                <div
+                  ref={userMessageRef}
+                  className={cn(
+                    'whitespace-pre-wrap overflow-hidden transition-all duration-200',
+                    needsCollapse && !isUserMessageExpanded && 'max-h-[120px]',
+                  )}
+                >
+                  {text}
+                </div>
+                {needsCollapse && !isUserMessageExpanded && (
+                  <div className="absolute bottom-0 left-0 right-0 flex justify-center pt-6 pb-0">
+                    <div className="absolute inset-0 bg-linear-to-t from-secondary via-secondary/90 to-transparent" />
+                    <button
+                      type="button"
+                      onClick={() => setIsUserMessageExpanded(true)}
+                      className="relative z-10 p-1 rounded-full bg-secondary/80 backdrop-blur-sm border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <HugeiconsIcon icon={ArrowDown01Icon} size={14} strokeWidth={2} />
+                    </button>
+                  </div>
+                )}
+                {needsCollapse && isUserMessageExpanded && (
+                  <div className="flex justify-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsUserMessageExpanded(false)}
+                      className="p-1 rounded-full bg-secondary/80 backdrop-blur-sm border border-border/50 text-muted-foreground hover:text-foreground transition-colors rotate-180"
+                    >
+                      <HugeiconsIcon icon={ArrowDown01Icon} size={14} strokeWidth={2} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
           ) : (
             <div className="flex flex-col gap-3">
               {hasReasoning && !showRegenerationLoading && (
@@ -203,7 +334,7 @@ export function ChatMessageRow({
                   <span className="text-foreground animate-pulse">●●●</span>
                 </div>
               ) : (
-                <div
+                <CollapsibleCodeBlocks
                   className={cn(
                     'prose prose-sm prose-invert max-w-none',
                     (isLastAssistant || isBeingRegenerated) &&
@@ -212,7 +343,7 @@ export function ChatMessageRow({
                   )}
                 >
                   <Streamdown>{text}</Streamdown>
-                </div>
+                </CollapsibleCodeBlocks>
               )}
               {!hideActions && (
                 <div className="flex items-center gap-0.5">
@@ -276,6 +407,30 @@ export function ChatMessageRow({
             </div>
           )}
         </div>
+        {/* User message actions */}
+        {isUser && !isEditing && (
+          <div className="flex items-center gap-0.5">
+            <MessageAction
+              icon={Copy01Icon}
+              successIcon={Tick01Icon}
+              successTooltip="Copied!"
+              onClick={() => navigator.clipboard.writeText(text)}
+              tooltip="Copy"
+            />
+            <MessageAction
+              icon={PencilEdit01Icon}
+              onClick={() => {
+                // Capture the current width before entering edit mode
+                if (messageContainerRef.current) {
+                  setEditWidth(messageContainerRef.current.offsetWidth)
+                }
+                setEditText(text)
+                setIsEditing(true)
+              }}
+              tooltip="Edit"
+            />
+          </div>
+        )}
       </div>
     </div>
   )

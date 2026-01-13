@@ -4,6 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Message01Icon, UserIcon, AiBrain01Icon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { Streamdown } from 'streamdown'
+import { CollapsibleCodeBlocks } from '@/components/collapsible-code-blocks'
 
 export const Route = createFileRoute('/s/$id')({
   component: SharedMessagePage,
@@ -107,9 +108,9 @@ function SharedMessagePage() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-xs text-muted-foreground mb-1">Assistant</div>
-              <div className="prose prose-sm prose-invert max-w-none text-foreground">
+              <CollapsibleCodeBlocks className="prose prose-sm prose-invert max-w-none text-foreground">
                 <Streamdown>{shared.response}</Streamdown>
-              </div>
+              </CollapsibleCodeBlocks>
             </div>
           </div>
         </div>

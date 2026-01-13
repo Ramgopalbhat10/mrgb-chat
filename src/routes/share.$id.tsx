@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Message01Icon, UserIcon, AiBrain01Icon } from '@hugeicons/core-free-icons'
 import { Streamdown } from 'streamdown'
+import { CollapsibleCodeBlocks } from '@/components/collapsible-code-blocks'
 
 interface SharedMessage {
   id: string
@@ -128,9 +129,9 @@ function SharedConversationPage() {
                     {message.content}
                   </p>
                 ) : (
-                  <div className="prose prose-sm prose-invert max-w-none text-foreground">
+                  <CollapsibleCodeBlocks className="prose prose-sm prose-invert max-w-none text-foreground">
                     <Streamdown>{message.content}</Streamdown>
-                  </div>
+                  </CollapsibleCodeBlocks>
                 )}
               </div>
             </div>

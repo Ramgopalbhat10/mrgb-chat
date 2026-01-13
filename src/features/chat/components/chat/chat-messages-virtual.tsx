@@ -18,6 +18,7 @@ interface ChatMessagesVirtualProps {
   onLoadMore?: () => void
   hasMore?: boolean
   onReload?: (assistantMessageId: string) => void
+  onEditMessage?: (userMessageId: string, newContent: string) => void
   onShareMessage?: (
     messageId: string,
     userInput: string,
@@ -36,6 +37,7 @@ export function ChatMessagesVirtual({
   onLoadMore,
   hasMore,
   onReload,
+  onEditMessage,
   onShareMessage,
   onUnshareMessage,
   sharedMessageMap,
@@ -260,10 +262,6 @@ export function ChatMessagesVirtual({
     return messages.find((message) => message.id === reasoningMessageId) || null
   }, [messages, reasoningMessageId])
 
-  const selectedReasoningSession = reasoningMessageId
-    ? reasoningSessions[reasoningMessageId]
-    : undefined
-
   if (messages.length === 0) {
     return null
   }
@@ -293,6 +291,7 @@ export function ChatMessagesVirtual({
               onOpenReasoning={openReasoning}
               onReload={onReload}
               onOpenShareDialog={openShareDialog}
+              onEditMessage={onEditMessage}
             />
           )
         })}
@@ -323,7 +322,6 @@ export function ChatMessagesVirtual({
         open={reasoningOpen}
         onOpenChange={setReasoningOpen}
         message={selectedReasoningMessage}
-        session={selectedReasoningSession}
       />
     </div>
   )
