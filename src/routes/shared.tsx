@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChatHeader } from '@/features/chat/components'
-import { useAppStore } from '@/stores/app-store'
+import { useUpdateConversation } from '@/features/chat/data/mutations'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Share01Icon,
@@ -34,7 +34,7 @@ export const Route = createFileRoute('/shared')({
 function SharedPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const updateConversation = useAppStore((state) => state.updateConversation)
+  const updateConversation = useUpdateConversation()
   const [deleteItem, setDeleteItem] = useState<{ id: string; type: 'conversation' | 'response' } | null>(null)
 
   // Fetch shared items using TanStack Query (cached)
@@ -44,13 +44,10 @@ function SharedPage() {
   const removeMutation = useMutation({
     mutationFn: async (item: { id: string; type: 'conversation' | 'response' }) => {
       if (item.type === 'conversation') {
-        const res = await fetch(`/api/conversations/${item.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isPublic: false }),
+        await updateConversation.mutateAsync({
+          id: item.id,
+          updates: { isPublic: false },
         })
-        if (!res.ok) throw new Error('Failed to make conversation private')
-        await updateConversation(item.id, { isPublic: false })
       } else {
         const res = await fetch(`/api/share?id=${item.id}`, { method: 'DELETE' })
         if (!res.ok) throw new Error('Failed to delete shared response')

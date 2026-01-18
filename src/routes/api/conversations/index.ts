@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { and, desc, eq, lt } from 'drizzle-orm'
+import { and, desc, eq, gt, sql } from 'drizzle-orm'
 
 import { db } from '@/server/db'
 import { conversations } from '@/server/db/schema'
@@ -26,6 +26,10 @@ export const Route = createFileRoute('/api/conversations/')({
         const starred = url.searchParams.get('starred')
         const archived = url.searchParams.get('archived') === 'true'
         const fullData = url.searchParams.get('full') === 'true'
+        const sinceRevisionParam = url.searchParams.get('sinceRevision')
+        const sinceRevision = sinceRevisionParam
+          ? Number.parseInt(sinceRevisionParam, 10)
+          : null
         const cursor = url.searchParams.get('cursor')
         const limit = Math.min(
           parseInt(url.searchParams.get('limit') ?? String(PAGE_SIZE), 10),
@@ -33,6 +37,8 @@ export const Route = createFileRoute('/api/conversations/')({
         )
 
         try {
+          const sortTimestamp = sql`coalesce(${conversations.lastMessageAt}, ${conversations.createdAt})`
+
           // Build base conditions
           const conditions = []
 
@@ -44,9 +50,13 @@ export const Route = createFileRoute('/api/conversations/')({
             conditions.push(eq(conversations.starred, true))
           }
 
+          if (sinceRevision !== null && !Number.isNaN(sinceRevision)) {
+            conditions.push(gt(conversations.revision, sinceRevision))
+          }
+
           // Cursor-based pagination
           if (cursor) {
-            conditions.push(lt(conversations.lastMessageAt, new Date(cursor)))
+            conditions.push(sql`${sortTimestamp} < ${new Date(cursor)}`)
           }
 
           // For full data request, return all fields
@@ -56,41 +66,57 @@ export const Route = createFileRoute('/api/conversations/')({
               .from(conversations)
               .where(and(...conditions))
               .orderBy(
-                desc(conversations.lastMessageAt),
+                desc(sortTimestamp),
                 desc(conversations.createdAt),
               )
               .limit(limit + 1)
 
             const hasMore = result.length > limit
             const items = hasMore ? result.slice(0, -1) : result
+            const lastItem = items[items.length - 1]
             const nextCursor =
-              hasMore && items.length > 0
-                ? items[items.length - 1].lastMessageAt?.toISOString()
+              hasMore && lastItem
+                ? (lastItem.lastMessageAt ?? lastItem.createdAt)?.toISOString()
                 : null
+
+            const [{ latestRevision }] = await db
+              .select({
+                latestRevision: sql<number>`max(${conversations.revision})`,
+              })
+              .from(conversations)
 
             return Response.json({
               conversations: items,
               nextCursor,
               hasMore,
+              latestRevision: latestRevision ?? 0,
             })
           }
 
           // Cache-first for first page of non-archived, non-starred titles
-          if (!cursor && !archived && starred !== 'true') {
+          if (!cursor && !archived && starred !== 'true' && sinceRevision === null) {
             const cached = await getCachedConversationTitles()
             if (cached && cached.length > 0) {
               // Return paginated cache result
               const items = cached.slice(0, limit)
               const hasMore = cached.length > limit
+              const lastItem = items[items.length - 1]
               const nextCursor =
-                hasMore && items.length > 0
-                  ? items[items.length - 1].lastMessageAt
+                hasMore && lastItem
+                  ? lastItem.lastMessageAt ?? lastItem.createdAt ?? null
                   : null
+
+              const [{ latestRevision }] = await db
+                .select({
+                  latestRevision: sql<number>`max(${conversations.revision})`,
+                })
+                .from(conversations)
 
               return Response.json({
                 conversations: items,
                 nextCursor,
                 hasMore,
+                latestRevision: latestRevision ?? 0,
               })
             }
           }
@@ -100,15 +126,17 @@ export const Route = createFileRoute('/api/conversations/')({
             .select({
               id: conversations.id,
               title: conversations.title,
+              createdAt: conversations.createdAt,
               lastMessageAt: conversations.lastMessageAt,
               starred: conversations.starred,
               archived: conversations.archived,
               isPublic: conversations.isPublic,
+              revision: conversations.revision,
             })
             .from(conversations)
             .where(and(...conditions))
             .orderBy(
-              desc(conversations.lastMessageAt),
+              desc(sortTimestamp),
               desc(conversations.createdAt),
             )
             .limit(limit + 1)
@@ -120,26 +148,36 @@ export const Route = createFileRoute('/api/conversations/')({
           const titles: ConversationTitle[] = items.map((c) => ({
             id: c.id,
             title: c.title,
+            createdAt: c.createdAt.toISOString(),
             lastMessageAt: c.lastMessageAt?.toISOString() ?? null,
             starred: c.starred,
             archived: c.archived,
             isPublic: c.isPublic,
+            revision: c.revision,
           }))
 
+          const lastItem = titles[titles.length - 1]
           const nextCursor =
-            hasMore && titles.length > 0
-              ? titles[titles.length - 1].lastMessageAt
+            hasMore && lastItem
+              ? lastItem.lastMessageAt ?? lastItem.createdAt ?? null
               : null
 
           // Cache first page of non-archived titles
-          if (!cursor && !archived && starred !== 'true') {
+          if (!cursor && !archived && starred !== 'true' && sinceRevision === null) {
             await setCachedConversationTitles(titles)
           }
+
+          const [{ latestRevision }] = await db
+            .select({
+              latestRevision: sql<number>`max(${conversations.revision})`,
+            })
+            .from(conversations)
 
           return Response.json({
             conversations: titles,
             nextCursor,
             hasMore,
+            latestRevision: latestRevision ?? 0,
           })
         } catch (error) {
           console.error('Failed to fetch conversations:', error)

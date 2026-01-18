@@ -72,6 +72,7 @@ export const conversations = sqliteTable('conversations', {
   starred: integer('starred', { mode: 'boolean' }).notNull().default(false),
   archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
   isPublic: integer('is_public', { mode: 'boolean' }).notNull().default(false),
+  revision: integer('revision').notNull().default(0),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -92,6 +93,7 @@ export const messages = sqliteTable('messages', {
   content: text('content').notNull(),
   clientId: text('client_id'),
   metaJson: text('meta_json'),
+  revision: integer('revision').notNull().default(0),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),

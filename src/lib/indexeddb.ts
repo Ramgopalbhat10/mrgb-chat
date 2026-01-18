@@ -8,6 +8,7 @@ export interface Conversation {
   starred: boolean
   archived: boolean
   isPublic: boolean
+  revision?: number
   createdAt: Date
   updatedAt: Date
   lastMessageAt: Date | null
@@ -20,6 +21,7 @@ export interface Message {
   content: string
   clientId: string | null
   metaJson: string | null
+  revision?: number
   createdAt: Date
 }
 
@@ -132,7 +134,11 @@ export async function updateConversation(
   const existing = await db.get('conversations', id)
   if (!existing) return undefined
 
-  const updated = { ...existing, ...updates, updatedAt: new Date() }
+  const updated = {
+    ...existing,
+    ...updates,
+    updatedAt: updates.updatedAt ?? new Date(),
+  }
   await db.put('conversations', updated)
   return updated
 }
@@ -207,7 +213,7 @@ export async function createMessage(message: Message): Promise<Message> {
     await db.put('conversations', {
       ...conversation,
       lastMessageAt: message.createdAt,
-      updatedAt: new Date(),
+      updatedAt: message.createdAt,
     })
   }
 

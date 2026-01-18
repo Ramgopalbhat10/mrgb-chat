@@ -10,7 +10,7 @@ import {
   Delete01Icon,
   Cancel01Icon,
 } from '@hugeicons/core-free-icons'
-import { useAppStore } from '@/stores/app-store'
+import { useDeleteConversation } from '@/features/chat/data/mutations'
 import { ConversationActionsDropdown } from './conversation-actions-dropdown'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -57,7 +57,7 @@ export function ConversationList({
   emptyDescription = 'Start a new chat to begin a conversation.',
 }: ConversationListProps) {
   const navigate = useNavigate()
-  const deleteConversation = useAppStore((state) => state.deleteConversation)
+  const deleteConversation = useDeleteConversation()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isSelectionMode, setIsSelectionMode] = useState(false)
@@ -108,7 +108,7 @@ export function ConversationList({
     setIsDeleting(true)
     try {
       for (const id of selectedIds) {
-        await deleteConversation(id)
+        await deleteConversation.mutateAsync(id)
       }
       setSelectedIds(new Set())
       setIsSelectionMode(false)

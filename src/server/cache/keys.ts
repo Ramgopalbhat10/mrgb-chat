@@ -13,10 +13,12 @@ export const CACHE_TTL = {
 export interface ConversationTitle {
   id: string
   title: string
+  createdAt?: string
   lastMessageAt: string | null
   starred?: boolean
   archived?: boolean
   isPublic?: boolean
+  revision?: number
 }
 
 // Type for cached project with count

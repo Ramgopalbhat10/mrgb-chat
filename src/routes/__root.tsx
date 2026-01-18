@@ -12,6 +12,10 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { useAppStore } from '@/stores/app-store'
 import { AuthProvider, useAuth } from '@/providers/auth-provider'
 import { QueryProvider } from '@/providers/query-provider'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { conversationsQueryOptions } from '@/features/chat/data/queries'
+import { hydrateConversationsCache } from '@/features/chat/data/persistence'
+import { useCacheVersionSync } from '@/features/chat/hooks/use-cache-version-sync'
 
 import appCss from '../styles.css?url'
 
@@ -70,42 +74,37 @@ function AuthenticatedLayout() {
   const routerState = useRouterState()
   const { isAuthenticated, isLoading } = useAuth()
 
-  const conversations = useAppStore((state) => state.conversations)
   const activeConversationId = useAppStore(
     (state) => state.activeConversationId,
   )
-  const hydrate = useAppStore((state) => state.hydrate)
-  const checkAndSync = useAppStore((state) => state.checkAndSync)
   const handleNewChat = useAppStore((state) => state.handleNewChat)
   const setActiveConversationId = useAppStore(
     (state) => state.setActiveConversationId,
   )
+  const setHydrated = useAppStore((state) => state.setHydrated)
+  const queryClient = useQueryClient()
 
   // Check if current route is public (no auth/sidebar needed)
   const isLoginPage = routerState.location.pathname === '/login'
   const isSharePage = routerState.location.pathname.startsWith('/share/') || routerState.location.pathname.startsWith('/s/')
   const isPublicPage = isLoginPage || isSharePage
 
-  // Hydrate from IndexedDB on mount
+  const { data: conversations = [] } = useQuery({
+    ...conversationsQueryOptions(),
+    enabled: isAuthenticated && !isPublicPage,
+  })
+
   useEffect(() => {
-    hydrate()
-  }, [hydrate])
+    if (isPublicPage) return
 
-  // Cross-device sync: check for changes when tab becomes visible
-  useEffect(() => {
-    if (isPublicPage || !isAuthenticated) return
+    hydrateConversationsCache(queryClient)
+      .catch((error) => {
+        console.warn('Failed to hydrate conversations from IndexedDB:', error)
+      })
+      .finally(() => setHydrated(true))
+  }, [isPublicPage, queryClient, setHydrated])
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        checkAndSync()
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [checkAndSync, isPublicPage, isAuthenticated])
+  useCacheVersionSync({ enabled: !isPublicPage })
 
   // Redirect to login if not authenticated (except on public pages)
   useEffect(() => {

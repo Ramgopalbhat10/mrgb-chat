@@ -4,8 +4,7 @@ import { ChatHeader, ConversationList } from '@/features/chat/components'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
-import { useAppStore } from '@/stores/app-store'
-import { projectsQueryOptions, projectConversationsQueryOptions } from '@/features/chat/data/queries'
+import { projectsQueryOptions, projectConversationsQueryOptions, conversationsQueryOptions } from '@/features/chat/data/queries'
 
 export const Route = createFileRoute('/project/$id')({
   component: ProjectDetailPage,
@@ -14,7 +13,7 @@ export const Route = createFileRoute('/project/$id')({
 function ProjectDetailPage() {
   const { id } = Route.useParams()
   const navigate = useNavigate()
-  const conversations = useAppStore((state) => state.conversations)
+  const { data: conversations = [] } = useQuery(conversationsQueryOptions())
 
   // Fetch projects list using TanStack Query (cached)
   const { data: projects = [], isLoading: isLoadingProjects } = useQuery(projectsQueryOptions())

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 
 import { db } from '@/server/db'
 import { conversations, messages, sharedMessages, conversationProjects } from '@/server/db/schema'
@@ -45,6 +45,7 @@ export const Route = createFileRoute('/api/conversations/$id')({
           const body = await request.json()
           const updates: Record<string, unknown> = {
             updatedAt: new Date(),
+            revision: sql<number>`${conversations.revision} + 1`,
           }
 
           if (body.title !== undefined) updates.title = body.title

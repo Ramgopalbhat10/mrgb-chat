@@ -14,10 +14,17 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { SidebarLeftIcon } from '@hugeicons/core-free-icons'
 import {
   availableModelsQueryOptions,
+  conversationsQueryOptions,
   sharedItemsQueryOptions,
   sharedKeys,
 } from '@/features/chat/data/queries'
+import { useUpdateConversation } from '@/features/chat/data/mutations'
+import {
+  updateConversationCache,
+  updateMessagesCache,
+} from '@/features/chat/data/persistence'
 import * as db from '@/lib/indexeddb'
+import type { Message as PersistedMessage } from '@/lib/indexeddb'
 import type { UIMessage } from 'ai'
 import type { ModelMetadata } from '@/features/chat/data/queries'
 
@@ -38,11 +45,11 @@ export function ChatView({
   const scrollRef = useRef<HTMLDivElement>(null)
   const persistedMessageIds = useRef<Set<string>>(new Set())
   const hasSentPendingMessage = useRef(false)
-  const conversations = useAppStore((state) => state.conversations)
   const titleLoadingIds = useAppStore((state) => state.titleLoadingIds)
-  const updateConversation = useAppStore((state) => state.updateConversation)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { data: conversations = [] } = useQuery(conversationsQueryOptions())
+  const updateConversation = useUpdateConversation()
 
   // Track which message is being regenerated (null when not regenerating)
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<
@@ -144,6 +151,47 @@ export function ChatView({
     return undefined
   }, [])
 
+  const appendMessageToCache = useCallback(
+    (messageData: PersistedMessage) => {
+      updateMessagesCache(queryClient, conversationId, (current) => [
+        ...current,
+        messageData,
+      ])
+      updateConversationCache(queryClient, (current) =>
+        current.map((conv) =>
+          conv.id === conversationId
+            ? {
+                ...conv,
+                lastMessageAt: messageData.createdAt,
+                updatedAt: new Date(),
+              }
+            : conv,
+        ),
+      )
+    },
+    [conversationId, queryClient],
+  )
+
+  const updateMessageInCache = useCallback(
+    (messageId: string, updates: Partial<PersistedMessage>) => {
+      updateMessagesCache(queryClient, conversationId, (current) =>
+        current.map((msg) =>
+          msg.id === messageId ? { ...msg, ...updates } : msg,
+        ),
+      )
+    },
+    [conversationId, queryClient],
+  )
+
+  const removeMessageFromCache = useCallback(
+    (messageId: string) => {
+      updateMessagesCache(queryClient, conversationId, (current) =>
+        current.filter((msg) => msg.id !== messageId),
+      )
+    },
+    [conversationId, queryClient],
+  )
+
   // Persist a single message to IndexedDB and server
   const persistMessage = useCallback(
     async (message: UIMessage) => {
@@ -193,6 +241,7 @@ export function ChatView({
           await db
             .updateMessage(message.id, { content, metaJson })
             .catch(console.error)
+          updateMessageInCache(message.id, { content, metaJson })
 
           fetch(
             `/api/conversations/${conversationId}/messages?messageId=${message.id}`,
@@ -220,6 +269,7 @@ export function ChatView({
 
         // Persist to IndexedDB (local-first)
         await db.createMessage(messageData)
+        appendMessageToCache(messageData)
 
         // Persist to server (fire-and-forget, don't block on it)
         // The server endpoint handles conversation creation if missing (via onConflictDoNothing)
@@ -244,7 +294,7 @@ export function ChatView({
         persistedMessageIds.current.delete(message.id)
       }
     },
-    [conversationId, getMessageContent, getMessageMeta],
+    [appendMessageToCache, conversationId, getMessageContent, getMessageMeta, updateMessageInCache],
   )
 
   const chatResult = useChat({
@@ -355,6 +405,10 @@ export function ChatView({
             ),
           )
 
+          tailMessages.forEach((message) => {
+            removeMessageFromCache(message.id)
+          })
+
           await Promise.allSettled(
             tailMessages.map((message) =>
               fetch(
@@ -412,6 +466,7 @@ export function ChatView({
       conversation?.modelId,
       selectedModelMetadata?.id,
       regenerate,
+      removeMessageFromCache,
       setMessages,
       sharedMessageMap,
       handleUnshareMessage,
@@ -445,6 +500,7 @@ export function ChatView({
 
       // Update in IndexedDB and server
       db.updateMessage(userMessageId, { content: newContent }).catch(console.error)
+      updateMessageInCache(userMessageId, { content: newContent })
       fetch(
         `/api/conversations/${conversationId}/messages?messageId=${userMessageId}`,
         {
@@ -464,7 +520,14 @@ export function ChatView({
         sendMessage({ text: newContent })
       }
     },
-    [chatMessages, conversationId, setMessages, sendMessage, handleRegenerate],
+    [
+      chatMessages,
+      conversationId,
+      handleRegenerate,
+      sendMessage,
+      setMessages,
+      updateMessageInCache,
+    ],
   )
 
   // User messages are persisted manually in handleSubmit for reliability
@@ -477,14 +540,13 @@ export function ChatView({
     })
   }, [initialMessages])
 
-  // Set initial messages when provided (for loading existing conversations)
-  const initialMessagesSet = useRef(false)
+  // Sync messages from cache when not streaming or regenerating
   useEffect(() => {
-    if (initialMessages.length > 0 && !initialMessagesSet.current) {
-      initialMessagesSet.current = true
-      setMessages(initialMessages)
-    }
-  }, [initialMessages, setMessages])
+    if (initialMessages.length === 0) return
+    if (status === 'streaming' || status === 'submitted') return
+    if (regeneratingMessageId) return
+    setMessages(initialMessages)
+  }, [initialMessages, regeneratingMessageId, setMessages, status])
 
   // Handle pending message from /new route - send to AI and persist
   useEffect(() => {
@@ -507,6 +569,7 @@ export function ChatView({
       }
 
       persistedMessageIds.current.add(userMessageId)
+      appendMessageToCache(userMessageData)
 
       db.createMessage(userMessageData).catch((error) => {
         console.error('Failed to persist user message to IndexedDB:', error)
@@ -519,7 +582,7 @@ export function ChatView({
         body: JSON.stringify(userMessageData),
       }).catch(console.error)
     }
-  }, [pendingMessage, conversationId, sendMessage])
+  }, [appendMessageToCache, conversationId, pendingMessage, sendMessage])
 
   const isLoading = status === 'streaming' || status === 'submitted'
   const hasMessages = chatMessages.length > 0
@@ -564,11 +627,15 @@ export function ChatView({
       }
 
       // Update conversation with selected modelId if not already set
-      if (conversation && !conversation.modelId) {
-        updateConversation(conversationId, { modelId })
+      if (conversation && modelId && !conversation.modelId) {
+        updateConversation.mutate({
+          id: conversationId,
+          updates: { modelId },
+        })
       }
 
       persistedMessageIds.current.add(userMessageId)
+      appendMessageToCache(userMessageData)
 
       try {
         await db.createMessage(userMessageData)

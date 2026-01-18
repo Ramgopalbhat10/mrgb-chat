@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useAppStore } from '@/stores/app-store'
+import { useCreateConversation } from '@/features/chat/data/mutations'
 import { useCallback, useState, useRef } from 'react'
 import { ChatEmptyState, ChatInput } from '@/features/chat/components'
 import { useSidebar } from '@/components/ui/sidebar'
@@ -20,11 +21,11 @@ function NewChatPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const hasSubmitted = useRef(false)
 
-  const addConversation = useAppStore((state) => state.addConversation)
   const setActiveConversationId = useAppStore(
     (state) => state.setActiveConversationId,
   )
   const setPendingNewChat = useAppStore((state) => state.setPendingNewChat)
+  const createConversation = useCreateConversation()
 
   // Sidebar toggle for mobile or when sidebar is collapsed
   const {
@@ -47,8 +48,7 @@ function NewChatPage() {
       const conversationId = crypto.randomUUID()
 
       try {
-        // 1. Create conversation in store + DB
-        await addConversation({
+        await createConversation.mutateAsync({
           id: conversationId,
           title: 'New conversation',
           starred: false,
@@ -59,10 +59,10 @@ function NewChatPage() {
           lastMessageAt: new Date(),
         })
 
-        // 2. Store pending message in global state for /chat/$id to pick up
+        // Store pending message in global state for /chat/$id to pick up
         setPendingNewChat({ conversationId, initialMessage: userText })
 
-        // 3. Set as active and navigate - /chat/$id will handle the rest
+        // Set as active and navigate - /chat/$id will handle the rest
         setActiveConversationId(conversationId)
         navigate({
           to: '/chat/$id',
@@ -78,7 +78,7 @@ function NewChatPage() {
     [
       input,
       isSubmitting,
-      addConversation,
+      createConversation,
       setActiveConversationId,
       setPendingNewChat,
       navigate,

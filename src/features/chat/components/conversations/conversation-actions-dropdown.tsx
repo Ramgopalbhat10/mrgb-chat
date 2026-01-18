@@ -40,9 +40,9 @@ import {
   Folder01Icon,
   Cancel01Icon,
 } from '@hugeicons/core-free-icons'
-import { useAppStore } from '@/stores/app-store'
 import type { Conversation } from '@/lib/indexeddb'
 import { projectKeys, projectsQueryOptions, sharedKeys } from '../../data/queries'
+import { useDeleteConversation, useUpdateConversation } from '@/features/chat/data/mutations'
 
 interface Project {
   id: string
@@ -82,8 +82,8 @@ export function ConversationActionsDropdown({
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set())
   const [initialProjectIds, setInitialProjectIds] = useState<Set<string>>(new Set())
 
-  const updateConversation = useAppStore((state) => state.updateConversation)
-  const deleteConversation = useAppStore((state) => state.deleteConversation)
+  const updateConversation = useUpdateConversation()
+  const deleteConversation = useDeleteConversation()
 
   // Fetch projects using TanStack Query (cached)
   const { data: projects = [], isLoading: isLoadingProjects } = useQuery({
@@ -188,7 +188,10 @@ export function ConversationActionsDropdown({
 
     setIsLoading(true)
     try {
-      await updateConversation(conversation.id, { title: newTitle.trim() })
+      await updateConversation.mutateAsync({
+        id: conversation.id,
+        updates: { title: newTitle.trim() },
+      })
       setIsRenameOpen(false)
     } catch (error) {
       console.error('Failed to rename conversation:', error)
@@ -199,7 +202,10 @@ export function ConversationActionsDropdown({
 
   const handleToggleStar = async () => {
     try {
-      await updateConversation(conversation.id, { starred: !conversation.starred })
+      await updateConversation.mutateAsync({
+        id: conversation.id,
+        updates: { starred: !conversation.starred },
+      })
     } catch (error) {
       console.error('Failed to toggle star:', error)
     }
@@ -208,17 +214,7 @@ export function ConversationActionsDropdown({
   const handleDelete = async () => {
     setIsLoading(true)
     try {
-      // Wait for server deletion to complete FIRST (this cleans up shared items and project associations)
-      const serverResponse = await fetch(`/api/conversations/${conversation.id}`, {
-        method: 'DELETE',
-      })
-      
-      if (!serverResponse.ok) {
-        throw new Error('Server deletion failed')
-      }
-      
-      // Then delete from local store (IndexedDB)
-      await deleteConversation(conversation.id)
+      await deleteConversation.mutateAsync(conversation.id)
       
       // Force refetch of all project and shared queries (not just invalidate)
       await Promise.all([

@@ -1,40 +1,15 @@
-import { useState, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useAppStore } from '@/stores/app-store'
+import { useQuery } from '@tanstack/react-query'
 import { ChatHeader, ConversationList } from '@/features/chat/components'
-
-interface Project {
-  id: string
-  name: string
-}
+import { conversationsQueryOptions, projectsMetadataQueryOptions } from '@/features/chat/data/queries'
 
 export const Route = createFileRoute('/chats')({
   component: ChatsPage,
 })
 
 function ChatsPage() {
-  const conversations = useAppStore((state) => state.conversations)
-  const [projects, setProjects] = useState<Project[]>([])
-  const [conversationProjects, setConversationProjects] = useState<
-    Record<string, string[]>
-  >({})
-
-  useEffect(() => {
-    fetchProjectsData()
-  }, [])
-
-  const fetchProjectsData = async () => {
-    try {
-      const res = await fetch('/api/projects/metadata')
-      if (res.ok) {
-        const data = await res.json()
-        setProjects(data.projects)
-        setConversationProjects(data.conversationProjects)
-      }
-    } catch (error) {
-      console.error('Failed to fetch projects:', error)
-    }
-  }
+  const { data: conversations = [] } = useQuery(conversationsQueryOptions())
+  const { data: projectsMetadata } = useQuery(projectsMetadataQueryOptions())
 
   // Filter out archived conversations
   const visibleConversations = conversations.filter((c) => !c.archived)
@@ -48,9 +23,8 @@ function ChatsPage() {
             conversations={visibleConversations}
             title="Your Chats"
             showProjectBadges={true}
-            projects={projects}
-            conversationProjects={conversationProjects}
-            onProjectsChanged={fetchProjectsData}
+            projects={projectsMetadata?.projects ?? []}
+            conversationProjects={projectsMetadata?.conversationProjects ?? {}}
           />
         </div>
       </div>

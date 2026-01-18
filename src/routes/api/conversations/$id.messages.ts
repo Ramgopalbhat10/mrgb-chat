@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { and, asc, eq, gt } from 'drizzle-orm'
+import { and, asc, eq, gt, sql } from 'drizzle-orm'
 
 import { db } from '@/server/db'
 import { conversations, messages, sharedMessages } from '@/server/db/schema'
@@ -7,6 +7,7 @@ import {
   getCachedMessagePreview,
   setCachedMessagePreview,
   invalidateOnNewMessage,
+  incrementCacheVersion,
   type MessagePreview,
 } from '@/server/cache'
 import { requireAuth } from '@/server/auth/get-session'
@@ -23,11 +24,16 @@ export const Route = createFileRoute('/api/conversations/$id/messages')({
 
         const url = new URL(request.url)
         const cursor = url.searchParams.get('cursor')
+        const after = url.searchParams.get('after')
         const previewOnly = url.searchParams.get('preview') === 'true'
+        const limit = Math.min(
+          parseInt(url.searchParams.get('limit') ?? String(PAGE_SIZE), 10),
+          200,
+        )
 
         try {
           // For initial load without cursor, try cache first (preview: first user + assistant)
-          if (!cursor && previewOnly) {
+          if (!cursor && !after && previewOnly) {
             const cached = await getCachedMessagePreview(params.id)
             if (cached) {
               const previewMessages = []
@@ -64,34 +70,35 @@ export const Route = createFileRoute('/api/conversations/$id/messages')({
           }
 
           // Paginated fetch from Turso
-          const result = cursor
+          const afterCursor = after ?? cursor
+          const result = afterCursor
             ? await db
                 .select()
                 .from(messages)
                 .where(
                   and(
                     eq(messages.conversationId, params.id),
-                    gt(messages.createdAt, new Date(cursor)),
+                    gt(messages.createdAt, new Date(afterCursor)),
                   ),
                 )
                 .orderBy(asc(messages.createdAt))
-                .limit(PAGE_SIZE + 1)
+                .limit(limit + 1)
             : await db
                 .select()
                 .from(messages)
                 .where(eq(messages.conversationId, params.id))
                 .orderBy(asc(messages.createdAt))
-                .limit(PAGE_SIZE + 1)
+                .limit(limit + 1)
 
           // Check if there are more messages
-          const hasMore = result.length > PAGE_SIZE
-          const messageList = hasMore ? result.slice(0, PAGE_SIZE) : result
+          const hasMore = result.length > limit
+          const messageList = hasMore ? result.slice(0, limit) : result
           const nextCursor = hasMore
             ? messageList[messageList.length - 1]?.createdAt?.toISOString()
             : undefined
 
           // Cache the preview (first user + assistant message) if this is initial load
-          if (!cursor && messageList.length > 0) {
+          if (!afterCursor && messageList.length > 0) {
             const userMsg = messageList.find((m) => m.role === 'user')
             const assistantMsg = messageList.find((m) => m.role === 'assistant')
 
@@ -155,11 +162,13 @@ export const Route = createFileRoute('/api/conversations/$id/messages')({
             .set({
               lastMessageAt: now,
               updatedAt: now,
+              revision: sql<number>`${conversations.revision} + 1`,
             })
             .where(eq(conversations.id, params.id))
 
           // Invalidate cache (titles list and message preview)
           await invalidateOnNewMessage(params.id)
+          await incrementCacheVersion()
 
           return Response.json(newMessage, { status: 201 })
         } catch (error) {
@@ -186,8 +195,9 @@ export const Route = createFileRoute('/api/conversations/$id/messages')({
             return new Response('content is required', { status: 400 })
           }
 
-          const updates: Partial<typeof messages.$inferInsert> = {
+          const updates: Record<string, unknown> = {
             content: body.content,
+            revision: sql<number>`${messages.revision} + 1`,
           }
 
           if (body.metaJson !== undefined) {
@@ -205,8 +215,17 @@ export const Route = createFileRoute('/api/conversations/$id/messages')({
               ),
             )
 
+          await db
+            .update(conversations)
+            .set({
+              updatedAt: new Date(),
+              revision: sql<number>`${conversations.revision} + 1`,
+            })
+            .where(eq(conversations.id, params.id))
+
           // Invalidate cache
           await invalidateOnNewMessage(params.id)
+          await incrementCacheVersion()
 
           return new Response(null, { status: 204 })
         } catch (error) {
@@ -242,6 +261,17 @@ export const Route = createFileRoute('/api/conversations/$id/messages')({
                 eq(messages.conversationId, params.id),
               ),
             )
+
+          await db
+            .update(conversations)
+            .set({
+              updatedAt: new Date(),
+              revision: sql<number>`${conversations.revision} + 1`,
+            })
+            .where(eq(conversations.id, params.id))
+
+          await invalidateOnNewMessage(params.id)
+          await incrementCacheVersion()
 
           return new Response(null, { status: 204 })
         } catch (error) {
