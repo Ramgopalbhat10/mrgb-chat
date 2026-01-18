@@ -31,3 +31,19 @@
 ## Notes
 - Full message history is now fetched via paged requests (oldest-first) and persisted to IndexedDB.
 - Cross-device changes now trigger query invalidation via `/api/cache-version` polling.
+
+## Goal 02
+- Improve chat UX responsiveness during streaming and heavy markdown rendering.
+- Ensure regenerate uses the current model selection from the input every time.
+- Reduce UI jank with virtualization and more intentional scroll behavior.
+
+## Goal 02 Changes
+
+### Model selection + regeneration
+- Model selection is now controlled from ChatView and passed into ChatInput as a controlled value; regenerate/send always uses the active input model: `src/features/chat/components/chat/chat-view.tsx`, `src/features/chat/components/chat/chat-input.tsx`.
+
+### Streaming performance + rendering
+- Streamdown rendering optimized for streaming: static mode for non-streaming messages, memoized message rows, and throttled updates from the chat stream: `src/features/chat/components/messages/chat-message-row/index.tsx`, `src/features/chat/components/chat/chat-view.tsx`.
+
+### Scrolling + animations
+- Virtualized message list improvements: smooth scrolling container, scroll-to-bottom indicator, entry animation (stabilized), and resize-observer tuning: `src/features/chat/components/chat/chat-messages-virtual.tsx`, `src/styles.css`.
