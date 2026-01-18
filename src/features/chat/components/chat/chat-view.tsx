@@ -35,6 +35,8 @@ interface ChatViewProps {
   scrollToMessageId?: string // Message ID to scroll to (from shared items navigation)
 }
 
+const DEFAULT_MODEL_ID = 'google/gemini-3-flash'
+
 export function ChatView({
   conversationId,
   initialMessages = [],
@@ -50,6 +52,11 @@ export function ChatView({
   const queryClient = useQueryClient()
   const { data: conversations = [] } = useQuery(conversationsQueryOptions())
   const updateConversation = useUpdateConversation()
+  const [inputModelId, setInputModelId] = useState<string | undefined>(
+    DEFAULT_MODEL_ID,
+  )
+  const selectedModelIdRef = useRef<string | undefined>(undefined)
+  const hasUserSelectedModelRef = useRef(false)
 
   // Track which message is being regenerated (null when not regenerating)
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<
@@ -80,20 +87,59 @@ export function ChatView({
     navigate({ to: '/new' })
   }
 
+  const handleModelChange = useCallback((modelId: string) => {
+    hasUserSelectedModelRef.current = true
+    selectedModelIdRef.current = modelId
+    setInputModelId(modelId)
+  }, [])
+
   // Memoize transport to prevent re-creation on each render
   const transport = useMemo(
-    () => new DefaultChatTransport({ api: '/api/chat' }),
+    () =>
+      new DefaultChatTransport({
+        api: '/api/chat',
+        body: () => ({ modelId: selectedModelIdRef.current }),
+      }),
     [],
   )
 
   // Model metadata - moved up to be available for persistMessage
   const { data: models = [] } = useQuery(availableModelsQueryOptions())
+  useEffect(() => {
+    hasUserSelectedModelRef.current = false
+  }, [conversationId])
+
+  useEffect(() => {
+    if (hasUserSelectedModelRef.current) return
+    const nextModelId =
+      conversation?.modelId ?? inputModelId ?? DEFAULT_MODEL_ID
+    if (nextModelId && nextModelId !== inputModelId) {
+      setInputModelId(nextModelId)
+    }
+    if (nextModelId) {
+      selectedModelIdRef.current = nextModelId
+    }
+  }, [conversation?.modelId, conversationId, inputModelId])
+
+  useEffect(() => {
+    if (hasUserSelectedModelRef.current) return
+    if (!inputModelId && models[0]?.id) {
+      setInputModelId(models[0].id)
+      selectedModelIdRef.current = models[0].id
+    }
+  }, [inputModelId, models])
+
+  const selectedModelId =
+    inputModelId ?? (conversation as any)?.modelId ?? models[0]?.id
+  useEffect(() => {
+    if (selectedModelId) {
+      selectedModelIdRef.current = selectedModelId
+    }
+  }, [selectedModelId])
+
   const selectedModelMetadata = useMemo(
-    () =>
-      models.find(
-        (m: ModelMetadata) => m.id === (conversation as any)?.modelId,
-      ) || models[0],
-    [models, conversation],
+    () => models.find((m: ModelMetadata) => m.id === selectedModelId) || models[0],
+    [models, selectedModelId],
   )
 
   // Extract text content from UIMessage - handles both parts array and content string
@@ -297,12 +343,54 @@ export function ChatView({
     [appendMessageToCache, conversationId, getMessageContent, getMessageMeta, updateMessageInCache],
   )
 
+  const compactMessageParts = useCallback((message: UIMessage) => {
+    if (!message.parts || message.parts.length === 0) return message
+
+    const nextParts: UIMessage['parts'] = []
+    let textBuffer = ''
+
+    for (const part of message.parts) {
+      if (part.type === 'text') {
+        textBuffer += (part as { type: 'text'; text: string }).text ?? ''
+        continue
+      }
+      if (textBuffer) {
+        nextParts.push({ type: 'text', text: textBuffer })
+        textBuffer = ''
+      }
+      nextParts.push(part)
+    }
+
+    if (textBuffer) {
+      nextParts.push({ type: 'text', text: textBuffer })
+    }
+
+    if (
+      nextParts.length === message.parts.length &&
+      nextParts.every((part, index) => part === message.parts?.[index])
+    ) {
+      return message
+    }
+
+    return {
+      ...message,
+      parts: nextParts,
+      ...(message.role === 'assistant' ? { content: undefined } : {}),
+    } as UIMessage
+  }, [])
+
   const chatResult = useChat({
     id: conversationId,
     transport,
+    experimental_throttle: 50,
     onFinish: async ({ message }) => {
       // Persist assistant message when streaming completes
       await persistMessage(message)
+      setMessages((current: UIMessage[]) =>
+        current.map((msg) =>
+          msg.id === message.id ? compactMessageParts(msg) : msg,
+        ),
+      )
     },
   })
 
@@ -313,6 +401,12 @@ export function ChatView({
     setMessages,
     regenerate,
   } = chatResult as any
+
+  useEffect(() => {
+    return () => {
+      setMessages([])
+    }
+  }, [setMessages])
 
   // Share a specific message - creates a public shareable link
   const handleShareMessage = useCallback(
@@ -330,7 +424,10 @@ export function ChatView({
             conversationId,
             userInput,
             response,
-            modelId: selectedModelMetadata?.id,
+            modelId:
+              selectedModelIdRef.current ??
+              selectedModelId ??
+              selectedModelMetadata?.id,
           }),
         })
 
@@ -348,7 +445,7 @@ export function ChatView({
         return null
       }
     },
-    [conversationId, selectedModelMetadata, queryClient],
+    [conversationId, selectedModelId, selectedModelMetadata, queryClient],
   )
 
   // Unshare a message - removes the public shareable link
@@ -446,11 +543,12 @@ export function ChatView({
         await handleUnshareMessage(shareId)
       }
 
+      const resolvedModelId = selectedModelIdRef.current ?? selectedModelId
       try {
         await regenerate({
           messageId: assistantMessageId,
           body: {
-            modelId: conversation?.modelId ?? selectedModelMetadata?.id,
+            modelId: resolvedModelId,
           },
         })
       } catch (error) {
@@ -463,8 +561,7 @@ export function ChatView({
     },
     [
       chatMessages,
-      conversation?.modelId,
-      selectedModelMetadata?.id,
+      selectedModelId,
       regenerate,
       removeMessageFromCache,
       setMessages,
@@ -609,9 +706,10 @@ export function ChatView({
 
     const userText = input.trim()
     setInput('')
+    const resolvedModelId = modelId ?? selectedModelIdRef.current
 
     // Send message to AI - useChat will handle adding the message and streaming
-    sendMessage({ text: userText }, { body: { modelId } })
+    sendMessage({ text: userText }, { body: { modelId: resolvedModelId } })
 
     // Persist user message after a short delay to not interfere with useChat state
     setTimeout(async () => {
@@ -627,10 +725,10 @@ export function ChatView({
       }
 
       // Update conversation with selected modelId if not already set
-      if (conversation && modelId && !conversation.modelId) {
+      if (conversation && resolvedModelId && !conversation.modelId) {
         updateConversation.mutate({
           id: conversationId,
-          updates: { modelId },
+          updates: { modelId: resolvedModelId },
         })
       }
 
@@ -710,7 +808,7 @@ export function ChatView({
           onShareMessage={handleShareMessage}
           onUnshareMessage={handleUnshareMessage}
           sharedMessageMap={sharedMessageMap}
-          modelId={selectedModelMetadata?.id}
+          modelId={selectedModelId}
           scrollToMessageId={scrollToMessageId}
         />
       )}
@@ -721,6 +819,8 @@ export function ChatView({
         isLoading={isLoading}
         messages={chatMessages}
         defaultModelId={conversation?.modelId}
+        selectedModelId={selectedModelId}
+        onModelChange={handleModelChange}
       />
     </div>
   )

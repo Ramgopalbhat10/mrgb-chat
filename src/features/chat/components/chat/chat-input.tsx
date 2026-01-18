@@ -22,6 +22,8 @@ interface ChatInputProps {
   isLoading?: boolean
   messages?: UIMessage[]
   defaultModelId?: string
+  selectedModelId?: string
+  onModelChange?: (modelId: string) => void
 }
 
 // Default model - Gemini 3 Flash
@@ -34,41 +36,48 @@ export function ChatInput({
   isLoading,
   messages = [],
   defaultModelId,
+  selectedModelId,
+  onModelChange,
 }: ChatInputProps) {
   // Track if user has manually selected a model in this session
   const userSelectedRef = useRef(false)
-  const [selectedModel, setSelectedModel] = useState<string>(
+  const [localModelId, setLocalModelId] = useState<string>(
     defaultModelId || DEFAULT_MODEL,
   )
   const formRef = useRef<HTMLFormElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const effectiveModelId = selectedModelId ?? localModelId
 
   // Fetch available models to get context window for the selected model
   const { data: models = [] } = useQuery(availableModelsQueryOptions())
 
   // Get the metadata for the currently selected model in the dropdown
   const selectedModelMetadata = useMemo(() => {
-    return models.find((m: ModelMetadata) => m.id === selectedModel)
-  }, [models, selectedModel])
+    return models.find((m: ModelMetadata) => m.id === effectiveModelId)
+  }, [models, effectiveModelId])
 
   // Handle model selection - mark as user-selected to prevent auto-reset
   const handleModelSelect = useCallback((modelId: string) => {
     userSelectedRef.current = true
-    setSelectedModel(modelId)
-  }, [])
+    if (selectedModelId === undefined) {
+      setLocalModelId(modelId)
+    }
+    onModelChange?.(modelId)
+  }, [onModelChange, selectedModelId])
 
   // Only sync with defaultModelId on initial load or when conversation changes
   // Don't override user's manual selection
   const prevDefaultModelId = useRef(defaultModelId)
   useEffect(() => {
+    if (selectedModelId !== undefined) return
     // Only sync if conversation changed (different defaultModelId) and user hasn't manually selected
     if (defaultModelId && defaultModelId !== prevDefaultModelId.current) {
       prevDefaultModelId.current = defaultModelId
       if (!userSelectedRef.current) {
-        setSelectedModel(defaultModelId)
+        setLocalModelId(defaultModelId)
       }
     }
-  }, [defaultModelId])
+  }, [defaultModelId, selectedModelId])
 
   // Calculate token count from actual usage metadata when available
   // Falls back to estimation for messages without metadata
@@ -93,20 +102,22 @@ export function ChatInput({
     }
 
     // Fallback: estimate all text at ~4 characters per token
-    const allText =
-      messages
-        .map((m) => {
-          const msg = m as any
-          if (typeof msg.content === 'string') return msg.content
-          if (m.parts)
-            return m.parts
-              .filter((p) => p.type === 'text')
-              .map((p: any) => p.text)
-              .join('')
-          return ''
-        })
-        .join('') + input
-    return Math.ceil(allText.length / 4)
+    let totalChars = input.length
+    for (const m of messages) {
+      const msg = m as any
+      if (typeof msg.content === 'string') {
+        totalChars += msg.content.length
+        continue
+      }
+      if (m.parts) {
+        for (const part of m.parts) {
+          if (part.type === 'text') {
+            totalChars += (part as any).text?.length ?? 0
+          }
+        }
+      }
+    }
+    return Math.ceil(totalChars / 4)
   }, [messages, input])
 
   // Use context window from the currently selected model (updates when dropdown changes)
@@ -125,7 +136,7 @@ export function ChatInput({
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(e, selectedModel)
+    onSubmit(e, effectiveModelId)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -170,7 +181,7 @@ export function ChatInput({
                 />
               </Button>
               <ModelSelector
-                selectedModelId={selectedModel}
+                selectedModelId={effectiveModelId}
                 onSelect={handleModelSelect}
               />
               <Button

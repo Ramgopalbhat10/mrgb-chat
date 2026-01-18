@@ -228,10 +228,39 @@ li[data-streamdown="list-item"] {
 
 div[data-streamdown="code-block-header"] {
   padding: 4px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 pre[data-streamdown="code-block-body"] {
   padding: 8px;
+}
+
+div[data-streamdown="code-block-header"] code,
+div[data-streamdown="code-block-header"] span {
+  white-space: inherit;
+  overflow-wrap: inherit;
+  word-break: inherit;
+}
+
+@keyframes chat-message-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.chat-message-enter {
+  animation: chat-message-enter 220ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-message-enter {
+    animation: none;
+  }
 }
 
 /* Collapsible Code Blocks */

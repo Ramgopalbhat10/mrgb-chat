@@ -1,19 +1,11 @@
 import type { UIMessage } from 'ai'
 import { cn } from '@/lib/utils'
 import { Streamdown } from 'streamdown'
+import { getMessageText } from '../messages'
 
 interface ChatMessagesProps {
   messages: UIMessage[]
   isLoading?: boolean
-}
-
-function getMessageText(message: UIMessage): string {
-  return message.parts
-    .filter(
-      (part): part is { type: 'text'; text: string } => part.type === 'text',
-    )
-    .map((part) => part.text)
-    .join('')
 }
 
 export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
@@ -25,7 +17,7 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
   const isStreaming = isLoading && lastMessage?.role === 'assistant'
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-3xl mx-auto">
+    <div className="flex flex-col gap-6 p-4 max-w-3xl mx-auto">
       {messages.map((message) => {
         const text = getMessageText(message)
         const isUser = message.role === 'user'

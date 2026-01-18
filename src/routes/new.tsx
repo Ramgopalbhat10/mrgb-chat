@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useAppStore } from '@/stores/app-store'
 import { useCreateConversation } from '@/features/chat/data/mutations'
-import { useCallback, useState, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChatEmptyState, ChatInput } from '@/features/chat/components'
 import { useSidebar } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
@@ -35,6 +35,10 @@ function NewChatPage() {
     openMobile,
   } = useSidebar()
   const showToggle = isMobile ? !openMobile : sidebarState === 'collapsed'
+
+  useEffect(() => {
+    setActiveConversationId(null)
+  }, [setActiveConversationId])
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {

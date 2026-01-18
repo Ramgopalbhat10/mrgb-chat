@@ -346,6 +346,7 @@ export const messagesQueryOptions = (conversationId: string) =>
       }
     },
     staleTime: 30_000,
+    gcTime: 0,
   })
 
 export interface Project {

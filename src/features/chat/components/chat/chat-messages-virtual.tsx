@@ -1,12 +1,15 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import type { UIMessage } from 'ai'
+import { Button } from '@/components/ui/button'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import {
   ChatMessageRow,
   ShareResponseDialog,
   ReasoningTraceSheet,
   getMessageText,
   getReasoningParts,
-  messageAnchorId,
   type ShareDialogMessage,
   type ReasoningSession,
 } from '../messages'
@@ -64,6 +67,12 @@ export function ChatMessagesVirtual({
   const [shareMode, setShareMode] = useState<'private' | 'public'>('private')
   const [isUpdatingShare, setIsUpdatingShare] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false)
+  const [enteringMessageIds, setEnteringMessageIds] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const enterTimeoutsRef = useRef<Map<string, number>>(new Map())
+  const lastAnimatedMessageIdRef = useRef<string | null>(null)
 
   const openReasoning = useCallback((messageId: string) => {
     setReasoningMessageId(messageId)
@@ -73,6 +82,10 @@ export function ChatMessagesVirtual({
   const handleShareDialogOpenChange = useCallback((nextOpen: boolean) => {
     if (!nextOpen) setShareDialogOpen(false)
   }, [])
+
+  useEffect(() => {
+    hasScrolledToTarget.current = false
+  }, [scrollToMessageId])
 
   const lastMessage = messages[messages.length - 1]
   // Streaming when: normal loading with assistant message OR regenerating any message
@@ -128,19 +141,27 @@ export function ChatMessagesVirtual({
   const showLoadingIndicator =
     isLoading && lastMessage?.role === 'user' && !regeneratingMessageId
 
+  const totalCount = messages.length + (showLoadingIndicator ? 1 : 0)
+  const rowVirtualizer = useVirtualizer({
+    count: totalCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 140,
+    overscan: 6,
+    useAnimationFrameWithResizeObserver: true,
+  })
+  const virtualItems = rowVirtualizer.getVirtualItems()
+
   // Scroll to specific message if scrollToMessageId is provided
   useEffect(() => {
-    if (
-      scrollToMessageId &&
-      messages.length > 0 &&
-      !hasScrolledToTarget.current
-    ) {
-      const target = document.getElementById(messageAnchorId(scrollToMessageId))
-      if (!target) return
-      hasScrolledToTarget.current = true
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }, [scrollToMessageId, messages])
+    if (!scrollToMessageId || messages.length === 0) return
+    if (hasScrolledToTarget.current) return
+    const targetIndex = messages.findIndex(
+      (message) => message.id === scrollToMessageId,
+    )
+    if (targetIndex === -1) return
+    hasScrolledToTarget.current = true
+    rowVirtualizer.scrollToIndex(targetIndex, { align: 'start' })
+  }, [messages, rowVirtualizer, scrollToMessageId])
 
   // Auto-scroll to bottom when new messages arrive (skip if we have a scroll target or regenerating)
   useEffect(() => {
@@ -148,15 +169,9 @@ export function ChatMessagesVirtual({
     if (regeneratingMessageId) return // Don't scroll during regeneration
     if (messages.length > lastMessageCount.current) {
       lastMessageCount.current = messages.length
-      const element = parentRef.current
-      if (element) {
-        element.scrollTo({
-          top: element.scrollHeight,
-          behavior: 'smooth',
-        })
-      }
+      rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end' })
     }
-  }, [messages.length, scrollToMessageId, regeneratingMessageId])
+  }, [messages.length, regeneratingMessageId, rowVirtualizer, scrollToMessageId])
 
   // Note: Removed auto-scroll during streaming as it caused issues during regeneration.
   // Users can manually scroll if needed. Scroll only happens for NEW messages (above effect).
@@ -194,13 +209,70 @@ export function ChatMessagesVirtual({
     }
   }, [onLoadMore, hasMore])
 
+  const updateScrollIndicator = useCallback(() => {
+    const element = parentRef.current
+    if (!element) return
+    const distanceFromBottom =
+      element.scrollHeight - element.scrollTop - element.clientHeight
+    setShowScrollToBottom(distanceFromBottom > 240)
+  }, [])
+
+  const scrollToBottom = useCallback(() => {
+    const element = parentRef.current
+    if (!element) return
+    element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' })
+  }, [])
+
   useEffect(() => {
     const element = parentRef.current
     if (!element) return
 
-    element.addEventListener('scroll', handleScroll)
-    return () => element.removeEventListener('scroll', handleScroll)
-  }, [handleScroll])
+    const handleScrollEvent = () => {
+      handleScroll()
+      updateScrollIndicator()
+    }
+
+    element.addEventListener('scroll', handleScrollEvent, { passive: true })
+    updateScrollIndicator()
+    return () => element.removeEventListener('scroll', handleScrollEvent)
+  }, [handleScroll, updateScrollIndicator])
+
+  useEffect(() => {
+    updateScrollIndicator()
+  }, [messages.length, updateScrollIndicator])
+
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1]
+    if (!lastMessage) return
+    if (lastAnimatedMessageIdRef.current === lastMessage.id) return
+
+    lastAnimatedMessageIdRef.current = lastMessage.id
+    setEnteringMessageIds((current) => {
+      const next = new Set(current)
+      next.add(lastMessage.id)
+      return next
+    })
+
+    const timeoutId = window.setTimeout(() => {
+      setEnteringMessageIds((current) => {
+        const next = new Set(current)
+        next.delete(lastMessage.id)
+        return next
+      })
+      enterTimeoutsRef.current.delete(lastMessage.id)
+    }, 320)
+
+    enterTimeoutsRef.current.set(lastMessage.id, timeoutId)
+  }, [messages])
+
+  useEffect(() => {
+    return () => {
+      for (const timeoutId of enterTimeoutsRef.current.values()) {
+        window.clearTimeout(timeoutId)
+      }
+      enterTimeoutsRef.current.clear()
+    }
+  }, [])
 
   // Share dialog handlers
   const openShareDialog = (
@@ -267,42 +339,104 @@ export function ChatMessagesVirtual({
   }
 
   return (
-    <div ref={parentRef} className="flex-1 overflow-y-auto">
-      <div className="w-full max-w-3xl mx-auto p-6">
-        {messages.map((message, index) => {
-          const previousMessage = index > 0 ? messages[index - 1] : null
-          const userInput = previousMessage
-            ? getMessageText(previousMessage)
-            : ''
-          return (
-            <ChatMessageRow
-              key={message.id}
-              message={message}
-              index={index}
-              totalMessages={messages.length}
-              isLoading={isLoading}
-              isStreaming={isStreaming}
-              regeneratingMessageId={regeneratingMessageId}
-              regenerationOriginalLength={regenerationOriginalLengthRef.current}
-              modelId={modelId}
-              sharedMessageMap={sharedMessageMap}
-              reasoningSession={reasoningSessions[message.id]}
-              userInput={userInput}
-              onOpenReasoning={openReasoning}
-              onReload={onReload}
-              onOpenShareDialog={openShareDialog}
-              onEditMessage={onEditMessage}
-            />
-          )
-        })}
-        {showLoadingIndicator && (
-          <div className="px-6">
-            <div className="flex flex-col gap-1.5 items-start">
-              <div className="text-sm">
-                <span className="text-foreground animate-pulse">●●●</span>
+    <div
+      ref={parentRef}
+      className="flex-1 overflow-y-auto scroll-smooth overscroll-contain relative"
+    >
+      <div className="w-full max-w-3xl mx-auto px-4 py-4">
+        <div
+          className="relative w-full"
+          style={{ height: rowVirtualizer.getTotalSize() }}
+        >
+          {virtualItems.map((virtualRow) => {
+            const isLoadingRow =
+              showLoadingIndicator && virtualRow.index === messages.length
+            if (isLoadingRow) {
+              return (
+                <div
+                  key="loading"
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <div className="flex flex-col gap-1.5 items-start">
+                    <div className="text-sm">
+                      <span className="text-foreground animate-pulse">●●●</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            const message = messages[virtualRow.index]
+            if (!message) return null
+
+            const previousMessage =
+              virtualRow.index > 0 ? messages[virtualRow.index - 1] : null
+            const userInput = previousMessage
+              ? getMessageText(previousMessage)
+              : ''
+
+            return (
+              <div
+                key={message.id}
+                data-index={virtualRow.index}
+                ref={rowVirtualizer.measureElement}
+                className={
+                  enteringMessageIds.has(message.id)
+                    ? 'chat-message-enter'
+                    : undefined
+                }
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <ChatMessageRow
+                  message={message}
+                  index={virtualRow.index}
+                  totalMessages={messages.length}
+                  isLoading={isLoading}
+                  isStreaming={isStreaming}
+                  regeneratingMessageId={regeneratingMessageId}
+                  regenerationOriginalLength={
+                    regenerationOriginalLengthRef.current
+                  }
+                  modelId={modelId}
+                  sharedMessageMap={sharedMessageMap}
+                  reasoningSession={reasoningSessions[message.id]}
+                  userInput={userInput}
+                  onOpenReasoning={openReasoning}
+                  onReload={onReload}
+                  onOpenShareDialog={openShareDialog}
+                  onEditMessage={onEditMessage}
+                />
               </div>
-            </div>
-          </div>
+            )
+          })}
+        </div>
+      </div>
+      <div className="pointer-events-none sticky bottom-4 z-20 flex justify-end pr-4">
+        {showScrollToBottom && (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="pointer-events-auto shadow-md"
+            onClick={scrollToBottom}
+          >
+            <HugeiconsIcon icon={ArrowDown01Icon} size={16} strokeWidth={2} />
+            <span className="ml-2 text-xs font-medium">Scroll to bottom</span>
+          </Button>
         )}
       </div>
 

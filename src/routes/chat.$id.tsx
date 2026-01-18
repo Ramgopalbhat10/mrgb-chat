@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useAppStore } from '@/stores/app-store'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { messagesQueryOptions } from '@/features/chat/data/queries'
+import { conversationKeys, messagesQueryOptions } from '@/features/chat/data/queries'
 import { hydrateMessagesCache } from '@/features/chat/data/persistence'
 import { useGenerateTitle } from '@/features/chat/data/mutations'
 import type { UIMessage } from 'ai'
@@ -61,6 +61,20 @@ function ChatPage() {
   useEffect(() => {
     hydrateMessagesCache(queryClient, id).catch((error) => {
       console.warn('Failed to hydrate messages from IndexedDB:', error)
+    })
+  }, [id, queryClient])
+
+  useEffect(() => {
+    queryClient.removeQueries({
+      predicate: (query) => {
+        const key = query.queryKey
+        return (
+          Array.isArray(key) &&
+          key[0] === conversationKeys.all[0] &&
+          key[2] === 'messages' &&
+          key[1] !== id
+        )
+      },
     })
   }, [id, queryClient])
 

@@ -39,6 +39,7 @@ import {
   Add01Icon,
   Folder01Icon,
   Cancel01Icon,
+  Download01Icon,
 } from '@hugeicons/core-free-icons'
 import type { Conversation } from '@/lib/indexeddb'
 import { projectKeys, projectsQueryOptions, sharedKeys } from '../../data/queries'
@@ -75,6 +76,7 @@ export function ConversationActionsDropdown({
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false)
   const [newTitle, setNewTitle] = useState(conversation.title)
   const [isLoading, setIsLoading] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
 
   // Project state
   const [newProjectName, setNewProjectName] = useState('')
@@ -211,6 +213,87 @@ export function ConversationActionsDropdown({
     }
   }
 
+  const handleDownloadConversation = async () => {
+    if (isDownloading) return
+    setIsDownloading(true)
+    try {
+      const allMessages: Array<{
+        id: string
+        role: string
+        content: string
+        createdAt?: string
+      }> = []
+
+      let cursor: string | undefined
+      do {
+        const params = new URLSearchParams({ limit: '200' })
+        if (cursor) params.set('cursor', cursor)
+        const res = await fetch(
+          `/api/conversations/${conversation.id}/messages?${params}`,
+        )
+        if (!res.ok) {
+          throw new Error('Failed to fetch conversation messages')
+        }
+        const data = await res.json()
+        const batch = Array.isArray(data) ? data : data.messages || []
+        allMessages.push(...batch)
+        cursor = data.nextCursor ?? undefined
+      } while (cursor)
+
+      const formatRole = (role: string) => {
+        if (role === 'user') return 'User'
+        if (role === 'assistant') return 'Assistant'
+        if (role === 'system') return 'System'
+        return 'Tool'
+      }
+
+      const lines = [
+        `# ${conversation.title}`,
+        '',
+        `Conversation ID: ${conversation.id}`,
+        '',
+      ]
+
+      for (const message of allMessages) {
+        lines.push(`## ${formatRole(message.role)}`)
+        if (message.createdAt) {
+          const timestamp = new Date(message.createdAt)
+          if (!Number.isNaN(timestamp.getTime())) {
+            lines.push(`_${timestamp.toISOString()}_`)
+          }
+        }
+        lines.push('')
+        lines.push(message.content ?? '')
+        lines.push('')
+      }
+
+      const safeTitle = conversation.title
+        .replace(/[^a-z0-9-_]+/gi, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 60)
+      const fileName = `${safeTitle || 'conversation'}-${conversation.id.slice(
+        0,
+        6,
+      )}.md`
+
+      const blob = new Blob([lines.join('\n')], {
+        type: 'text/markdown',
+      })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Failed to download conversation:', error)
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
   const handleDelete = async () => {
     setIsLoading(true)
     try {
@@ -254,6 +337,13 @@ export function ConversationActionsDropdown({
             <DropdownMenuItem onClick={() => setIsAddToProjectOpen(true)}>
               <HugeiconsIcon icon={FolderAddIcon} size={14} strokeWidth={2} />
               <span>Add to project</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleDownloadConversation}
+              disabled={isDownloading}
+            >
+              <HugeiconsIcon icon={Download01Icon} size={14} strokeWidth={2} />
+              <span>{isDownloading ? 'Preparing...' : 'Download'}</span>
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />

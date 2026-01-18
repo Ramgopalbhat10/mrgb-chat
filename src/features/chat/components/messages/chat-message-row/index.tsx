@@ -12,7 +12,7 @@ import {
   SentIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo, memo } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -111,7 +111,7 @@ export interface ChatMessageRowProps {
   onEditMessage?: (messageId: string, newContent: string) => void
 }
 
-export function ChatMessageRow({
+function ChatMessageRowComponent({
   message,
   index,
   totalMessages,
@@ -128,10 +128,10 @@ export function ChatMessageRow({
   onOpenShareDialog,
   onEditMessage,
 }: ChatMessageRowProps) {
-  const text = getMessageText(message)
+  const text = useMemo(() => getMessageText(message), [message])
   const isUser = message.role === 'user'
   const isLastAssistant = index === totalMessages - 1 && !isUser
-  const reasoningParts = getReasoningParts(message)
+  const reasoningParts = useMemo(() => getReasoningParts(message), [message])
   const hasReasoning = reasoningParts.length > 0
   const reasoningDurationSeconds =
     reasoningSession?.endedAt && reasoningSession.startedAt
@@ -156,7 +156,11 @@ export function ChatMessageRow({
   const hideActions =
     isBeingRegenerated ||
     (isLoading && isLastAssistant && !regeneratingMessageId)
-  const meta = getMessageMeta(message)
+  const meta = useMemo(() => getMessageMeta(message), [message])
+  const streamdownMode =
+    !isUser && (isBeingRegenerated || (isLastAssistant && isStreaming))
+      ? 'streaming'
+      : 'static'
 
   // User message state
   const [isUserMessageExpanded, setIsUserMessageExpanded] = useState(false)
@@ -208,7 +212,7 @@ export function ChatMessageRow({
   }
 
   return (
-    <div id={messageAnchorId(message.id)} className="px-6">
+    <div id={messageAnchorId(message.id)} className="w-full px-0">
       <div
         className={cn(
           'flex flex-col gap-1.5 py-3 group',
@@ -342,7 +346,13 @@ export function ChatMessageRow({
                       '**:animate-in **:fade-in **:duration-150',
                   )}
                 >
-                  <Streamdown>{text}</Streamdown>
+                  <Streamdown
+                    mode={streamdownMode}
+                    parseIncompleteMarkdown={streamdownMode === 'streaming'}
+                    isAnimating={isStreaming && !isUser}
+                  >
+                    {text}
+                  </Streamdown>
                 </CollapsibleCodeBlocks>
               )}
               {!hideActions && (
@@ -435,3 +445,28 @@ export function ChatMessageRow({
     </div>
   )
 }
+
+export const ChatMessageRow = memo(
+  ChatMessageRowComponent,
+  (prev, next) => {
+    if (prev.message.id !== next.message.id) return false
+    if (prev.isStreaming !== next.isStreaming) return false
+    if (prev.regeneratingMessageId !== next.regeneratingMessageId) return false
+    if (prev.index !== next.index || prev.totalMessages !== next.totalMessages)
+      return false
+    if (prev.modelId !== next.modelId) return false
+    if (prev.sharedMessageMap !== next.sharedMessageMap) return false
+    if (prev.reasoningSession !== next.reasoningSession) return false
+    if (prev.userInput !== next.userInput) return false
+
+    const prevContent = (prev.message as any).content
+    const nextContent = (next.message as any).content
+    if (prevContent !== nextContent) return false
+
+    const prevParts = prev.message.parts
+    const nextParts = next.message.parts
+    if (prevParts !== nextParts) return false
+
+    return true
+  },
+)

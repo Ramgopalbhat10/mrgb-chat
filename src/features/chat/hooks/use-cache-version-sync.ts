@@ -10,7 +10,7 @@ interface CacheSyncOptions {
 }
 
 export function useCacheVersionSync({
-  intervalMs = 15_000,
+  intervalMs = 5 * 60_000,
   enabled = true,
 }: CacheSyncOptions = {}) {
   const queryClient = useQueryClient()
