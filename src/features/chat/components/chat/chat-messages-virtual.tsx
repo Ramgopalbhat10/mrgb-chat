@@ -425,7 +425,7 @@ export function ChatMessagesVirtual({
           })}
         </div>
       </div>
-      <div className="pointer-events-none sticky bottom-4 z-20 flex justify-end pr-4">
+      <div className="pointer-events-none sticky bottom-4 z-20 flex justify-center px-4">
         {showScrollToBottom && (
           <Button
             type="button"
