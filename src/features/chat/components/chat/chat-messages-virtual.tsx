@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import type { VirtualItem, Virtualizer } from '@tanstack/virtual-core'
 import type { UIMessage } from 'ai'
 import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -51,6 +52,12 @@ export function ChatMessagesVirtual({
   const lastMessageCount = useRef(messages.length)
   const hasScrolledToTarget = useRef(false)
   const prevRegeneratingMessageIdRef = useRef<string | null>(null)
+  const autoScrollEnabledRef = useRef(true)
+  const scrollAnchorRef = useRef<{
+    messageId: string
+    offset: number
+  } | null>(null)
+  const wasStreamingRef = useRef(false)
   // Track original text length when regeneration starts to detect when new content arrives
   const regenerationOriginalLengthRef = useRef<number>(0)
 
@@ -150,6 +157,26 @@ export function ChatMessagesVirtual({
     useAnimationFrameWithResizeObserver: true,
   })
   const virtualItems = rowVirtualizer.getVirtualItems()
+  const totalSize = rowVirtualizer.getTotalSize()
+  const handleSizeChange = useCallback(
+    (
+      item: VirtualItem,
+      _delta: number,
+      instance: Virtualizer<HTMLDivElement, Element>,
+    ) => {
+      if (!autoScrollEnabledRef.current) return false
+      const scrollOffset = instance.scrollOffset ?? 0
+      return item.start < scrollOffset
+    },
+    [],
+  )
+
+  useEffect(() => {
+    const virtualizer = rowVirtualizer as Virtualizer<HTMLDivElement, Element> & {
+      shouldAdjustScrollPositionOnItemSizeChange?: typeof handleSizeChange
+    }
+    virtualizer.shouldAdjustScrollPositionOnItemSizeChange = handleSizeChange
+  }, [handleSizeChange, rowVirtualizer])
 
   // Scroll to specific message if scrollToMessageId is provided
   useEffect(() => {
@@ -169,7 +196,9 @@ export function ChatMessagesVirtual({
     if (regeneratingMessageId) return // Don't scroll during regeneration
     if (messages.length > lastMessageCount.current) {
       lastMessageCount.current = messages.length
-      rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end' })
+      if (autoScrollEnabledRef.current) {
+        rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end' })
+      }
     }
   }, [messages.length, regeneratingMessageId, rowVirtualizer, scrollToMessageId])
 
@@ -209,17 +238,37 @@ export function ChatMessagesVirtual({
     }
   }, [onLoadMore, hasMore])
 
+  const captureScrollAnchor = useCallback(() => {
+    const element = parentRef.current
+    if (!element) return
+    const virtualItems = rowVirtualizer.getVirtualItems()
+    if (virtualItems.length === 0) return
+    const firstItem = virtualItems[0]
+    const message = messages[firstItem.index]
+    if (!message) return
+    scrollAnchorRef.current = {
+      messageId: message.id,
+      offset: element.scrollTop - firstItem.start,
+    }
+  }, [messages, rowVirtualizer])
+
   const updateScrollIndicator = useCallback(() => {
     const element = parentRef.current
     if (!element) return
     const distanceFromBottom =
       element.scrollHeight - element.scrollTop - element.clientHeight
+    const overflow = element.scrollHeight - element.clientHeight
+    if (overflow <= 0) {
+      setShowScrollToBottom(false)
+      return
+    }
     setShowScrollToBottom(distanceFromBottom > 240)
   }, [])
 
   const scrollToBottom = useCallback(() => {
     const element = parentRef.current
     if (!element) return
+    autoScrollEnabledRef.current = true
     element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' })
   }, [])
 
@@ -230,16 +279,59 @@ export function ChatMessagesVirtual({
     const handleScrollEvent = () => {
       handleScroll()
       updateScrollIndicator()
+      const element = parentRef.current
+      if (!element) return
+      const distanceFromBottom =
+        element.scrollHeight - element.scrollTop - element.clientHeight
+      autoScrollEnabledRef.current = distanceFromBottom <= 4
+      if (!autoScrollEnabledRef.current) {
+        captureScrollAnchor()
+      }
     }
 
     element.addEventListener('scroll', handleScrollEvent, { passive: true })
     updateScrollIndicator()
     return () => element.removeEventListener('scroll', handleScrollEvent)
-  }, [handleScroll, updateScrollIndicator])
+  }, [handleScroll, updateScrollIndicator, captureScrollAnchor])
 
   useEffect(() => {
     updateScrollIndicator()
-  }, [messages.length, updateScrollIndicator])
+    if (!autoScrollEnabledRef.current) {
+      captureScrollAnchor()
+    }
+  }, [
+    messages,
+    regeneratingMessageId,
+    totalSize,
+    updateScrollIndicator,
+    captureScrollAnchor,
+  ])
+
+  useEffect(() => {
+    const wasStreaming = wasStreamingRef.current
+    wasStreamingRef.current = isStreaming
+    if (!wasStreaming || isStreaming) return
+    if (autoScrollEnabledRef.current) return
+    const anchor = scrollAnchorRef.current
+    if (!anchor) return
+
+    const restore = () => {
+      const element = parentRef.current
+      if (!element) return
+      const index = messages.findIndex((message) => message.id === anchor.messageId)
+      if (index === -1) return
+      const offsetInfo = rowVirtualizer.getOffsetForIndex(index, 'start')
+      if (!offsetInfo) return
+      const [offset] = offsetInfo
+      element.scrollTop = offset + anchor.offset
+    }
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => requestAnimationFrame(restore))
+    } else {
+      setTimeout(restore, 0)
+    }
+  }, [isStreaming, messages, rowVirtualizer])
 
   useEffect(() => {
     const lastMessage = messages[messages.length - 1]
@@ -346,7 +438,7 @@ export function ChatMessagesVirtual({
       <div className="w-full max-w-3xl mx-auto px-4 py-4">
         <div
           className="relative w-full"
-          style={{ height: rowVirtualizer.getTotalSize() }}
+          style={{ height: totalSize }}
         >
           {virtualItems.map((virtualRow) => {
             const isLoadingRow =
@@ -425,17 +517,17 @@ export function ChatMessagesVirtual({
           })}
         </div>
       </div>
-      <div className="pointer-events-none sticky bottom-4 z-20 flex justify-center px-4">
+      <div className="pointer-events-none sticky bottom-1 z-20 flex justify-center">
         {showScrollToBottom && (
           <Button
             type="button"
             size="sm"
             variant="secondary"
-            className="pointer-events-auto shadow-md"
+            className="pointer-events-auto shadow-md rounded-full p-1.5"
             onClick={scrollToBottom}
           >
             <HugeiconsIcon icon={ArrowDown01Icon} size={16} strokeWidth={2} />
-            <span className="ml-2 text-xs font-medium">Scroll to bottom</span>
+            {/* <span className="ml-2 text-xs font-medium">Scroll to bottom</span> */}
           </Button>
         )}
       </div>

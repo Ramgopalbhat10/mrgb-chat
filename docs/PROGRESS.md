@@ -47,3 +47,15 @@
 
 ### Scrolling + animations
 - Virtualized message list improvements: smooth scrolling container, scroll-to-bottom indicator, entry animation (stabilized), and resize-observer tuning: `src/features/chat/components/chat/chat-messages-virtual.tsx`, `src/styles.css`.
+
+## Goal 03
+- Fix chat UX regressions (duplicate first message and scroll behavior during regeneration/stream completion).
+
+## Goal 03 Changes
+
+### Message identity + persistence
+- User message IDs are now generated upfront and passed to `useChat` for send/pending flows to prevent duplicate user messages during the first send: `src/features/chat/components/chat/chat-view.tsx`.
+
+### Scroll indicator + anchoring
+- Scroll-to-bottom indicator now recalculates on content changes and hides when no overflow; scroll anchoring preserves the reader's position when streaming completes: `src/features/chat/components/chat/chat-messages-virtual.tsx`.
+- Auto-scroll now locks only when the user stays at the bottom; size-change adjustments are disabled when the user scrolls away to prevent drift during streaming/regeneration: `src/features/chat/components/chat/chat-messages-virtual.tsx`.

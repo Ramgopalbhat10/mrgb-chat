@@ -650,11 +650,16 @@ export function ChatView({
     if (pendingMessage && !hasSentPendingMessage.current) {
       hasSentPendingMessage.current = true
 
+      const userMessageId = crypto.randomUUID()
+      const resolvedModelId = selectedModelIdRef.current ?? selectedModelId
+
       // Send message to AI
-      sendMessage({ text: pendingMessage })
+      sendMessage(
+        { text: pendingMessage, messageId: userMessageId },
+        { body: { modelId: resolvedModelId } },
+      )
 
       // Persist user message
-      const userMessageId = crypto.randomUUID()
       const userMessageData = {
         id: userMessageId,
         conversationId,
@@ -679,7 +684,13 @@ export function ChatView({
         body: JSON.stringify(userMessageData),
       }).catch(console.error)
     }
-  }, [appendMessageToCache, conversationId, pendingMessage, sendMessage])
+  }, [
+    appendMessageToCache,
+    conversationId,
+    pendingMessage,
+    sendMessage,
+    selectedModelId,
+  ])
 
   const isLoading = status === 'streaming' || status === 'submitted'
   const hasMessages = chatMessages.length > 0
@@ -707,13 +718,16 @@ export function ChatView({
     const userText = input.trim()
     setInput('')
     const resolvedModelId = modelId ?? selectedModelIdRef.current
+    const userMessageId = crypto.randomUUID()
 
     // Send message to AI - useChat will handle adding the message and streaming
-    sendMessage({ text: userText }, { body: { modelId: resolvedModelId } })
+    sendMessage(
+      { text: userText, messageId: userMessageId },
+      { body: { modelId: resolvedModelId } },
+    )
 
     // Persist user message after a short delay to not interfere with useChat state
     setTimeout(async () => {
-      const userMessageId = crypto.randomUUID()
       const userMessageData = {
         id: userMessageId,
         conversationId,
