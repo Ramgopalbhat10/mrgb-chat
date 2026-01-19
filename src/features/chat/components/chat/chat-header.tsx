@@ -99,7 +99,7 @@ export function ChatHeader({
   }
 
   return (
-    <header className="flex items-center justify-between h-10 px-4 border-b border-sidebar-border/50 shrink-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+    <header className="flex items-center justify-between h-10 px-1.5 md:px-4 border-b border-sidebar-border/50 shrink-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="flex items-center gap-1 sm:gap-2 min-w-0">
         {/* Sidebar toggle - visible on mobile or when sidebar is collapsed */}
         <div
