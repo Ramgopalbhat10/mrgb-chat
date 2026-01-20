@@ -38,6 +38,7 @@ import { CollapsibleCodeBlocks } from '@/components/collapsible-code-blocks'
 import type { UIMessage } from 'ai'
 import { ModelSelector } from '@/features/chat/components/chat/model-selector'
 import type { RegenerationOptions } from '@/features/chat/types/regeneration'
+import { useIsMobile } from '@/hooks/use-mobile'
 import {
   formatThoughtDuration,
   getMessageMeta,
@@ -199,6 +200,7 @@ function ChatMessageRowComponent({
 
   const [isRegenerateOpen, setIsRegenerateOpen] = useState(false)
   const [regenerationPrompt, setRegenerationPrompt] = useState('')
+  const isMobile = useIsMobile()
 
   // User message state
   const [isUserMessageExpanded, setIsUserMessageExpanded] = useState(false)
@@ -543,9 +545,9 @@ function ChatMessageRowComponent({
                           <ModelSelector
                             selectedModelId={modelId}
                             onSelect={handleRegenerateSwitchModel}
-                            contentSide="right"
+                            contentSide={isMobile ? 'top' : 'right'}
                             contentAlign="start"
-                            contentSideOffset={8}
+                            contentSideOffset={isMobile ? 6 : 8}
                             trigger={
                               <button
                                 type="button"
