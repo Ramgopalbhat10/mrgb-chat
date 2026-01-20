@@ -4,6 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Message01Icon, UserIcon, AiBrain01Icon } from '@hugeicons/core-free-icons'
 import { Streamdown } from 'streamdown'
 import { CollapsibleCodeBlocks } from '@/components/collapsible-code-blocks'
+import { code } from '@streamdown/code'
 
 interface SharedMessage {
   id: string
@@ -130,7 +131,10 @@ function SharedConversationPage() {
                   </p>
                 ) : (
                   <CollapsibleCodeBlocks className="prose prose-sm prose-invert max-w-none text-foreground">
-                    <Streamdown>{message.content}</Streamdown>
+                    <Streamdown
+                      plugins={{ code: code }}
+                      shikiTheme={['github-dark', 'github-dark']}
+                    >{message.content}</Streamdown>
                   </CollapsibleCodeBlocks>
                 )}
               </div>

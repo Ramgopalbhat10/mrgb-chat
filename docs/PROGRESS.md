@@ -74,3 +74,14 @@
 ### Regeneration model selector enhancements
 - Memoize the shared model selector, support custom triggers and placement, and add a sticky search header with tag filtering chips to speed regeneration model choice: `src/features/chat/components/chat/model-selector.tsx`.
 - Replace the filter list toggle with an accordion-driven tag panel, include a filter icon with selected-count badge, and hide the tags on outside click with smooth expand/collapse: `src/features/chat/components/chat/model-selector.tsx`, `src/components/ui/accordion.tsx`.
+
+## Goal 05
+- Add route-aware document titles for chats/projects/shared and introduce a theme-aligned SVG favicon for the app.
+
+## Goal 05 Changes
+
+### Document titles
+- Set static titles for `/new`, `/chats`, `/projects`, and `/shared`, plus dynamic titles for chat and project detail pages based on conversation/project names: `src/routes/new.tsx`, `src/routes/chats.tsx`, `src/routes/projects.tsx`, `src/routes/shared.tsx`, `src/features/chat/components/chat/chat-view.tsx`, `src/routes/project.$id.tsx`.
+
+### Favicon
+- Add a green/gray chat-themed SVG favicon and wire it into the root document links: `public/favicon.svg`, `src/routes/__root.tsx`.

@@ -39,6 +39,9 @@ import { projectKeys, projectsMetadataQueryOptions, type Project } from '@/featu
 
 export const Route = createFileRoute('/projects')({
   component: ProjectsPage,
+  head: () => ({
+    meta: [{ title: 'MRGB Chat | Projects' }],
+  }),
 })
 
 function ProjectsPage() {

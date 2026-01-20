@@ -29,6 +29,9 @@ import { sharedKeys, sharedItemsQueryOptions } from '@/features/chat/data/querie
 
 export const Route = createFileRoute('/shared')({
   component: SharedPage,
+  head: () => ({
+    meta: [{ title: 'MRGB Chat | Shared' }],
+  }),
 })
 
 function SharedPage() {

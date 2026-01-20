@@ -8,7 +8,12 @@ import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { SidebarLeftIcon } from '@hugeicons/core-free-icons'
 
-export const Route = createFileRoute('/new')({ component: NewChatPage })
+export const Route = createFileRoute('/new')({
+  component: NewChatPage,
+  head: () => ({
+    meta: [{ title: 'MRGB Chat' }],
+  }),
+})
 
 /**
  * /new route - Shows empty chat UI with input

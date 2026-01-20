@@ -33,6 +33,7 @@ import {
 import { MessageUsageIndicator } from '../message-usage'
 import { cn } from '@/lib/utils'
 import { Streamdown } from 'streamdown'
+import { code } from '@streamdown/code'
 import { CollapsibleCodeBlocks } from '@/components/collapsible-code-blocks'
 import type { UIMessage } from 'ai'
 import { ModelSelector } from '@/features/chat/components/chat/model-selector'
@@ -423,6 +424,8 @@ function ChatMessageRowComponent({
                     mode={streamdownMode}
                     parseIncompleteMarkdown={streamdownMode === 'streaming'}
                     isAnimating={isStreaming && !isUser}
+                    plugins={{ code: code }}
+                    shikiTheme={['github-dark', 'github-dark']}
                   >
                     {text}
                   </Streamdown>

@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChatHeader, ConversationList } from '@/features/chat/components'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -25,6 +26,15 @@ function ProjectDetailPage() {
   )
 
   const isLoading = isLoadingProjects || isLoadingConvs
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    if (project?.name) {
+      document.title = project.name
+    } else {
+      document.title = 'MRGB Chat | Projects'
+    }
+  }, [project?.name])
 
   // Filter conversations that are in this project
   const projectConversations = conversations.filter((c) =>

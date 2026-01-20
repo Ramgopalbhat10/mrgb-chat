@@ -69,6 +69,11 @@ export function ChatView({
   const title = conversation?.title
   const titleIsLoading = titleLoadingIds.has(conversationId)
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.title = title ? title : 'MRGB Chat'
+  }, [title])
+
   // Fetch shared items to show indicator on shared messages
   const { data: sharedData } = useQuery(sharedItemsQueryOptions())
 
