@@ -7,6 +7,11 @@ import {
   Globe02Icon,
   Loading03Icon,
   ArrowDown01Icon,
+  ArrowUp01Icon,
+  ArrowRight01Icon,
+  ArrowExpand02Icon,
+  Minimize01Icon,
+  Exchange01Icon,
   PencilEdit01Icon,
   Cancel01Icon,
   SentIcon,
@@ -14,6 +19,12 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useState, useRef, useEffect, useMemo, memo } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Tooltip,
   TooltipContent,
@@ -24,6 +35,8 @@ import { cn } from '@/lib/utils'
 import { Streamdown } from 'streamdown'
 import { CollapsibleCodeBlocks } from '@/components/collapsible-code-blocks'
 import type { UIMessage } from 'ai'
+import { ModelSelector } from '@/features/chat/components/chat/model-selector'
+import type { RegenerationOptions } from '@/features/chat/types/regeneration'
 import {
   formatThoughtDuration,
   getMessageMeta,
@@ -89,6 +102,27 @@ function MessageAction({
   )
 }
 
+function RegenerationMenuItem({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: any
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+    >
+      <HugeiconsIcon icon={icon} size={15} strokeWidth={2} />
+      <span>{label}</span>
+    </button>
+  )
+}
+
 export interface ChatMessageRowProps {
   message: UIMessage
   index: number
@@ -102,7 +136,7 @@ export interface ChatMessageRowProps {
   reasoningSession?: ReasoningSession
   userInput: string
   onOpenReasoning: (messageId: string) => void
-  onReload?: (assistantMessageId: string) => void
+  onReload?: (assistantMessageId: string, options?: RegenerationOptions) => void
   onOpenShareDialog: (
     messageId: string,
     userInput: string,
@@ -162,6 +196,9 @@ function ChatMessageRowComponent({
       ? 'streaming'
       : 'static'
 
+  const [isRegenerateOpen, setIsRegenerateOpen] = useState(false)
+  const [regenerationPrompt, setRegenerationPrompt] = useState('')
+
   // User message state
   const [isUserMessageExpanded, setIsUserMessageExpanded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -190,6 +227,12 @@ function ChatMessageRowComponent({
     }
   }, [isUser, text])
 
+  useEffect(() => {
+    if (!isRegenerateOpen) {
+      setRegenerationPrompt('')
+    }
+  }, [isRegenerateOpen])
+
   // Auto-resize textarea when editing
   useEffect(() => {
     if (isEditing && textareaRef.current) {
@@ -209,6 +252,36 @@ function ChatMessageRowComponent({
   const handleEditSend = () => {
     setIsEditing(false)
     onEditMessage?.(message.id, editText)
+  }
+
+  const handleRegenerateInstructionSend = () => {
+    const trimmed = regenerationPrompt.trim()
+    if (!trimmed) return
+    onReload?.(message.id, { mode: 'instruction', instruction: trimmed })
+    setIsRegenerateOpen(false)
+  }
+
+  const handleRegenerateTryAgain = () => {
+    onReload?.(message.id)
+    setIsRegenerateOpen(false)
+  }
+
+  const handleRegenerateExpand = () => {
+    onReload?.(message.id, { mode: 'expand', assistantText: text })
+    setIsRegenerateOpen(false)
+  }
+
+  const handleRegenerateConcise = () => {
+    onReload?.(message.id, { mode: 'concise', assistantText: text })
+    setIsRegenerateOpen(false)
+  }
+
+  const handleRegenerateSwitchModel = (nextModelId: string) => {
+    onReload?.(message.id, {
+      mode: 'switch-model',
+      modelId: nextModelId,
+    })
+    setIsRegenerateOpen(false)
   }
 
   return (
@@ -387,11 +460,114 @@ function ChatMessageRowComponent({
                     }}
                     tooltip="Download"
                   />
-                  <MessageAction
-                    icon={Refresh01Icon}
-                    onClick={() => onReload?.(message.id)}
-                    tooltip="Regenerate"
-                  />
+                  <Popover
+                    open={isRegenerateOpen}
+                    onOpenChange={setIsRegenerateOpen}
+                  >
+                    <PopoverTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground transition-all duration-200 hover:text-foreground hover:bg-muted/50"
+                          aria-label="Regenerate"
+                        >
+                          <HugeiconsIcon
+                            icon={Refresh01Icon}
+                            size={15}
+                            strokeWidth={2}
+                          />
+                        </Button>
+                      }
+                    />
+                    {isRegenerateOpen ? (
+                      <PopoverContent
+                        align="start"
+                        side="bottom"
+                        className="w-60 p-2 gap-0"
+                      >
+                        <div>
+                          <div className="relative">
+                            <Input
+                              value={regenerationPrompt}
+                              onChange={(e) =>
+                                setRegenerationPrompt(e.target.value)
+                              }
+                              placeholder="Ask to change response"
+                              className="h-8 pr-9 text-xs placeholder:text-muted-foreground/50"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  handleRegenerateInstructionSend()
+                                }
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              onClick={handleRegenerateInstructionSend}
+                              disabled={!regenerationPrompt.trim()}
+                              className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-muted text-foreground hover:bg-muted/80 disabled:opacity-40"
+                              aria-label="Send instruction"
+                            >
+                              <HugeiconsIcon
+                                icon={ArrowUp01Icon}
+                                size={14}
+                                strokeWidth={2}
+                              />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="border-t border-border/60 pt-2 mt-2">
+                          <RegenerationMenuItem
+                            icon={Refresh01Icon}
+                            label="Try again"
+                            onClick={handleRegenerateTryAgain}
+                          />
+                          <RegenerationMenuItem
+                            icon={ArrowExpand02Icon}
+                            label="Add details"
+                            onClick={handleRegenerateExpand}
+                          />
+                          <RegenerationMenuItem
+                            icon={Minimize01Icon}
+                            label="More concise"
+                            onClick={handleRegenerateConcise}
+                          />
+                        </div>
+                        <div className="border-t border-border/60 pt-2 mt-2">
+                          <ModelSelector
+                            selectedModelId={modelId}
+                            onSelect={handleRegenerateSwitchModel}
+                            contentSide="right"
+                            contentAlign="start"
+                            contentSideOffset={8}
+                            trigger={
+                              <button
+                                type="button"
+                                className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <HugeiconsIcon
+                                    icon={Exchange01Icon}
+                                    size={15}
+                                    strokeWidth={2}
+                                  />
+                                  <span>Switch model</span>
+                                </span>
+                                <HugeiconsIcon
+                                  icon={ArrowRight01Icon}
+                                  size={15}
+                                  strokeWidth={2}
+                                />
+                              </button>
+                            }
+                          />
+                        </div>
+                      </PopoverContent>
+                    ) : null}
+                  </Popover>
                   <MessageAction
                     icon={
                       sharedMessageMap?.has(message.id)

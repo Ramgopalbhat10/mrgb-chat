@@ -59,3 +59,18 @@
 ### Scroll indicator + anchoring
 - Scroll-to-bottom indicator now recalculates on content changes and hides when no overflow; scroll anchoring preserves the reader's position when streaming completes: `src/features/chat/components/chat/chat-messages-virtual.tsx`.
 - Auto-scroll now locks only when the user stays at the bottom; size-change adjustments are disabled when the user scrolls away to prevent drift during streaming/regeneration: `src/features/chat/components/chat/chat-messages-virtual.tsx`.
+
+## Goal 04
+- Add a regeneration action popover with a system-prompt input, expand/concise actions, and per-regeneration model switching without changing the chat input model.
+
+## Goal 04 Changes
+
+### Regenerate actions popup
+- Replace the regenerate icon action with a sectioned popover that includes a system instruction input, try again, expand/concise actions, and a per-regeneration model switch row that opens a model list on click: `src/features/chat/components/messages/chat-message-row/index.tsx`.
+
+### Regeneration request handling
+- Extend regenerate requests to carry optional system instructions, expansion/concise modes, and model overrides without affecting the active input model: `src/features/chat/components/chat/chat-view.tsx`, `src/routes/api/chat.ts`.
+
+### Regeneration model selector enhancements
+- Memoize the shared model selector, support custom triggers and placement, and add a sticky search header with tag filtering chips to speed regeneration model choice: `src/features/chat/components/chat/model-selector.tsx`.
+- Replace the filter list toggle with an accordion-driven tag panel, include a filter icon with selected-count badge, and hide the tags on outside click with smooth expand/collapse: `src/features/chat/components/chat/model-selector.tsx`, `src/components/ui/accordion.tsx`.

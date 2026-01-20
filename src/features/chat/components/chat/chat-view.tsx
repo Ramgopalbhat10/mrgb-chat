@@ -27,6 +27,7 @@ import * as db from '@/lib/indexeddb'
 import type { Message as PersistedMessage } from '@/lib/indexeddb'
 import type { UIMessage } from 'ai'
 import type { ModelMetadata } from '@/features/chat/data/queries'
+import type { RegenerationOptions } from '@/features/chat/types/regeneration'
 
 interface ChatViewProps {
   conversationId: string
@@ -474,7 +475,7 @@ export function ChatView({
 
   // Reload/regenerate function - uses AI SDK regenerate for in-place updates
   const handleRegenerate = useCallback(
-    async (assistantMessageId: string) => {
+    async (assistantMessageId: string, options?: RegenerationOptions) => {
       // Find the assistant message being regenerated
       const assistantIndex = chatMessages.findIndex(
         (m: any) => m.id === assistantMessageId,
@@ -543,12 +544,27 @@ export function ChatView({
         await handleUnshareMessage(shareId)
       }
 
-      const resolvedModelId = selectedModelIdRef.current ?? selectedModelId
+      const resolvedModelId =
+        options?.modelId ?? selectedModelIdRef.current ?? selectedModelId
+      const trimmedInstruction = options?.instruction?.trim()
+      const shouldSendRegeneration =
+        options?.mode === 'expand' ||
+        options?.mode === 'concise' ||
+        options?.mode === 'instruction' ||
+        !!trimmedInstruction
+      const regeneration = shouldSendRegeneration
+        ? {
+            mode: options?.mode,
+            instruction: trimmedInstruction,
+            assistantText: options?.assistantText,
+          }
+        : undefined
       try {
         await regenerate({
           messageId: assistantMessageId,
           body: {
             modelId: resolvedModelId,
+            regeneration,
           },
         })
       } catch (error) {

@@ -5,6 +5,7 @@ import type { UIMessage } from 'ai'
 import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
+import type { RegenerationOptions } from '@/features/chat/types/regeneration'
 import {
   ChatMessageRow,
   ShareResponseDialog,
@@ -21,7 +22,7 @@ interface ChatMessagesVirtualProps {
   regeneratingMessageId?: string | null // ID of message being regenerated
   onLoadMore?: () => void
   hasMore?: boolean
-  onReload?: (assistantMessageId: string) => void
+  onReload?: (assistantMessageId: string, options?: RegenerationOptions) => void
   onEditMessage?: (userMessageId: string, newContent: string) => void
   onShareMessage?: (
     messageId: string,
