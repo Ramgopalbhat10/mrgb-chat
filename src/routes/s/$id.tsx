@@ -5,6 +5,7 @@ import { Message01Icon, UserIcon, AiBrain01Icon } from '@hugeicons/core-free-ico
 import { Button } from '@/components/ui/button'
 import { Streamdown } from 'streamdown'
 import { CollapsibleCodeBlocks } from '@/components/collapsible-code-blocks'
+import { useEffect } from 'react'
 
 export const Route = createFileRoute('/s/$id')({
   component: SharedMessagePage,
@@ -23,6 +24,11 @@ function SharedMessagePage() {
       return response.json()
     },
   })
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.title = shared?.userInput?.slice(0, 100) || 'Shared Response'
+  }, [shared?.userInput])
 
   if (isLoading) {
     return (

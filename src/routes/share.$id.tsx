@@ -38,6 +38,11 @@ function SharedConversationPage() {
     fetchSharedConversation()
   }, [id])
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.title = data?.conversation.title || 'Shared Conversation'
+  }, [data?.conversation.title])
+
   const fetchSharedConversation = async () => {
     setIsLoading(true)
     setError(null)
