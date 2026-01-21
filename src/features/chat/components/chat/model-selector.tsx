@@ -50,6 +50,21 @@ import {
   Qwen,
   Nvidia,
   Voyage,
+  Arcee,
+  Bfl,
+  ByteDance,
+  Minimax,
+  Moonshot,
+  Inception,
+  Kwaipilot,
+  LongCat,
+  Morph,
+  Recraft,
+  Vercel,
+  XAI,
+  ZAI,
+  XiaomiMiMo,
+  Grok,
 } from '@lobehub/icons/es/icons'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -79,6 +94,22 @@ const PROVIDER_ICONS: Record<
   qwen: Qwen,
   nvidia: Nvidia,
   voyage: Voyage,
+  amazon: Aws,
+  arcee: Arcee,
+  inception: Inception,
+  kwaipilot: Kwaipilot,
+  longcat: LongCat,
+  bfl: Bfl,
+  bytedance: ByteDance,
+  minimax: Minimax,
+  moonshotai: Moonshot,
+  morph: Morph,
+  recraft: Recraft,
+  vercel: Vercel,
+  xai: XAI,
+  xiaomi: XiaomiMiMo,
+  zai: ZAI,
+  grok: Grok
 }
 
 interface ModelSelectorProps {
