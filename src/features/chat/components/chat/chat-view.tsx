@@ -58,6 +58,8 @@ export function ChatView({
   )
   const selectedModelIdRef = useRef<string | undefined>(undefined)
   const hasUserSelectedModelRef = useRef(false)
+  const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null)
+  const jumpTargetRef = useRef<string | null>(null)
 
   // Track which message is being regenerated (null when not regenerating)
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<
@@ -97,6 +99,20 @@ export function ChatView({
     hasUserSelectedModelRef.current = true
     selectedModelIdRef.current = modelId
     setInputModelId(modelId)
+  }, [])
+
+  const handleJumpToMessage = useCallback((messageId: string) => {
+    if (jumpTargetRef.current === messageId) {
+      setJumpToMessageId(null)
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => setJumpToMessageId(messageId))
+      } else {
+        setTimeout(() => setJumpToMessageId(messageId), 0)
+      }
+      return
+    }
+
+    setJumpToMessageId(messageId)
   }, [])
 
   // Memoize transport to prevent re-creation on each render
@@ -142,6 +158,20 @@ export function ChatView({
       selectedModelIdRef.current = selectedModelId
     }
   }, [selectedModelId])
+
+  useEffect(() => {
+    jumpTargetRef.current = jumpToMessageId
+  }, [jumpToMessageId])
+
+  useEffect(() => {
+    setJumpToMessageId(null)
+  }, [conversationId])
+
+  useEffect(() => {
+    if (scrollToMessageId) {
+      setJumpToMessageId(null)
+    }
+  }, [scrollToMessageId])
 
   const selectedModelMetadata = useMemo(
     () => models.find((m: ModelMetadata) => m.id === selectedModelId) || models[0],
@@ -715,6 +745,7 @@ export function ChatView({
 
   const isLoading = status === 'streaming' || status === 'submitted'
   const hasMessages = chatMessages.length > 0
+  const resolvedScrollToMessageId = jumpToMessageId ?? scrollToMessageId
 
   // Debug: log messages and status changes
   // useEffect(() => {
@@ -808,6 +839,8 @@ export function ChatView({
           conversation={conversation}
           onDeleted={handleConversationDeleted}
           showShare={true}
+          messages={chatMessages}
+          onJumpToMessage={handleJumpToMessage}
         />
       ) : (
         // Sidebar toggle - absolutely positioned to avoid layout shift
@@ -844,7 +877,7 @@ export function ChatView({
           onUnshareMessage={handleUnshareMessage}
           sharedMessageMap={sharedMessageMap}
           modelId={selectedModelId}
-          scrollToMessageId={scrollToMessageId}
+          scrollToMessageId={resolvedScrollToMessageId}
         />
       )}
       <ChatInput

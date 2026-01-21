@@ -85,3 +85,11 @@
 
 ### Favicon
 - Add a green/gray chat-themed SVG favicon and wire it into the root document links: `public/favicon.svg`, `src/routes/__root.tsx`.
+
+## Goal 06
+- Add a user-message navigator dropdown to jump to any user prompt with smooth scrolling in the virtualized chat list, optimized for mobile, tablet, and desktop layouts.
+
+## Goal 06 Changes
+
+### Message navigator
+- Added a user-message jump menu in the chat header with numbered previews and smooth scroll targeting in the virtualized list: `src/features/chat/components/chat/user-message-jump-menu.tsx`, `src/features/chat/components/chat/chat-header.tsx`, `src/features/chat/components/chat/chat-view.tsx`, `src/features/chat/components/chat/chat-messages-virtual.tsx`.

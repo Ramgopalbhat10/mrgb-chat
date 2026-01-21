@@ -14,7 +14,9 @@ import {
   Loading03Icon,
 } from '@hugeicons/core-free-icons'
 import { ConversationActionsDropdown } from '../conversations'
+import { UserMessageJumpMenu } from './user-message-jump-menu'
 import type { Conversation } from '@/lib/indexeddb'
+import type { UIMessage } from 'ai'
 import {
   Dialog,
   DialogContent,
@@ -30,6 +32,8 @@ interface ChatHeaderProps {
   conversation?: Conversation
   onDeleted?: () => void
   showShare?: boolean
+  messages?: UIMessage[]
+  onJumpToMessage?: (messageId: string) => void
 }
 
 export function ChatHeader({
@@ -38,6 +42,8 @@ export function ChatHeader({
   conversation,
   onDeleted,
   showShare = false,
+  messages,
+  onJumpToMessage,
 }: ChatHeaderProps) {
   const { state, toggleSidebar, isMobile } = useSidebar()
   const queryClient = useQueryClient()
@@ -121,6 +127,12 @@ export function ChatHeader({
             <h1 className="text-sm font-medium text-foreground truncate">
               {title}
             </h1>
+            {messages && onJumpToMessage && (
+              <UserMessageJumpMenu
+                messages={messages}
+                onSelectMessage={onJumpToMessage}
+              />
+            )}
             {conversation?.isPublic && (
               <span title="This conversation is shared publicly">
                 <HugeiconsIcon

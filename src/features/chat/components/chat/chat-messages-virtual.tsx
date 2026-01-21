@@ -179,6 +179,21 @@ export function ChatMessagesVirtual({
     virtualizer.shouldAdjustScrollPositionOnItemSizeChange = handleSizeChange
   }, [handleSizeChange, rowVirtualizer])
 
+  const scrollToMessageIndex = useCallback(
+    (index: number) => {
+      const element = parentRef.current
+      if (!element) return
+      const offsetInfo = rowVirtualizer.getOffsetForIndex(index, 'start')
+      if (offsetInfo) {
+        const [offset] = offsetInfo
+        element.scrollTo({ top: offset, behavior: 'smooth' })
+        return
+      }
+      rowVirtualizer.scrollToIndex(index, { align: 'start' })
+    },
+    [rowVirtualizer],
+  )
+
   // Scroll to specific message if scrollToMessageId is provided
   useEffect(() => {
     if (!scrollToMessageId || messages.length === 0) return
@@ -188,8 +203,12 @@ export function ChatMessagesVirtual({
     )
     if (targetIndex === -1) return
     hasScrolledToTarget.current = true
-    rowVirtualizer.scrollToIndex(targetIndex, { align: 'start' })
-  }, [messages, rowVirtualizer, scrollToMessageId])
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => scrollToMessageIndex(targetIndex))
+    } else {
+      scrollToMessageIndex(targetIndex)
+    }
+  }, [messages, scrollToMessageId, scrollToMessageIndex])
 
   // Auto-scroll to bottom when new messages arrive (skip if we have a scroll target or regenerating)
   useEffect(() => {
