@@ -237,6 +237,18 @@ pre[data-streamdown="code-block-body"] {
   padding: 8px;
 }
 
+pre[data-streamdown="code-block-body"] code {
+  font-size: 0.85rem;
+}
+
+pre[data-streamdown="code-block-body"] code span::before{
+  display: none;
+}
+
+pre[data-streamdown="code-block-body"] code span {
+  margin-left: 2px;
+}
+
 div[data-streamdown="code-block-header"] code,
 div[data-streamdown="code-block-header"] span {
   white-space: inherit;
