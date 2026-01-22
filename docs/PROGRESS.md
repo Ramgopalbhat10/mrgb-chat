@@ -93,3 +93,9 @@
 
 ### Message navigator
 - Added a user-message jump menu in the chat header with numbered previews and smooth scroll targeting in the virtualized list: `src/features/chat/components/chat/user-message-jump-menu.tsx`, `src/features/chat/components/chat/chat-header.tsx`, `src/features/chat/components/chat/chat-view.tsx`, `src/features/chat/components/chat/chat-messages-virtual.tsx`.
+
+## Goal 07
+- Add an on-demand "Related" suggestions panel that appears after streaming completes, with a skeleton loading state and click-to-send behavior.
+- Wire suggestion generation to `ChatView` lifecycle events (stream finish + reload) without persisting suggestions to IndexedDB, DB, or caches.
+- Render suggestions within the virtualized message list so they scroll with responses and respect the chat layout.
+- Introduce `/api/suggestions` using AI SDK structured output, with code blocks removed from the user/assistant context before generating prompts.

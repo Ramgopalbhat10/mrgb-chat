@@ -28,9 +28,7 @@ function ChatPage() {
   const setActiveConversationId = useAppStore(
     (state) => state.setActiveConversationId,
   )
-  const consumePendingNewChat = useAppStore(
-    (state) => state.consumePendingNewChat,
-  )
+  const pendingNewChat = useAppStore((state) => state.pendingNewChat)
   const generateTitle = useGenerateTitle()
   const queryClient = useQueryClient()
 
@@ -46,17 +44,16 @@ function ChatPage() {
     setActiveConversationId(id)
 
     if (!hasConsumedPending.current) {
-      const pending = consumePendingNewChat()
-      if (pending && pending.conversationId === id) {
+      if (pendingNewChat && pendingNewChat.conversationId === id) {
         hasConsumedPending.current = true
         generateTitle.mutate({
           conversationId: id,
-          userMessage: pending.initialMessage,
+          userMessage: pendingNewChat.initialMessage,
         })
-        setPendingMessage(pending.initialMessage)
+        setPendingMessage(pendingNewChat.initialMessage)
       }
     }
-  }, [consumePendingNewChat, generateTitle, id, setActiveConversationId])
+  }, [generateTitle, id, pendingNewChat, setActiveConversationId])
 
   useEffect(() => {
     hydrateMessagesCache(queryClient, id).catch((error) => {

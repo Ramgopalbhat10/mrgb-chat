@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import type { RegenerationOptions } from '@/features/chat/types/regeneration'
+import { ChatSuggestions, ChatSuggestionsSkeleton } from './chat-suggestions'
 import {
   ChatMessageRow,
   ShareResponseDialog,
@@ -20,6 +21,9 @@ interface ChatMessagesVirtualProps {
   messages: UIMessage[]
   isLoading?: boolean
   regeneratingMessageId?: string | null // ID of message being regenerated
+  suggestions?: string[]
+  suggestionsLoading?: boolean
+  onSelectSuggestion?: (suggestion: string) => void
   onLoadMore?: () => void
   hasMore?: boolean
   onReload?: (assistantMessageId: string, options?: RegenerationOptions) => void
@@ -39,6 +43,9 @@ export function ChatMessagesVirtual({
   messages,
   isLoading,
   regeneratingMessageId,
+  suggestions,
+  suggestionsLoading,
+  onSelectSuggestion,
   onLoadMore,
   hasMore,
   onReload,
@@ -149,7 +156,14 @@ export function ChatMessagesVirtual({
   const showLoadingIndicator =
     isLoading && lastMessage?.role === 'user' && !regeneratingMessageId
 
-  const totalCount = messages.length + (showLoadingIndicator ? 1 : 0)
+  const showSuggestions =
+    !!suggestionsLoading || (suggestions && suggestions.length > 0)
+  const loadingIndex = showLoadingIndicator ? messages.length : null
+  const suggestionsIndex = showSuggestions
+    ? messages.length + (showLoadingIndicator ? 1 : 0)
+    : null
+  const totalCount =
+    messages.length + (showLoadingIndicator ? 1 : 0) + (showSuggestions ? 1 : 0)
   const rowVirtualizer = useVirtualizer({
     count: totalCount,
     getScrollElement: () => parentRef.current,
@@ -221,6 +235,12 @@ export function ChatMessagesVirtual({
       }
     }
   }, [messages.length, regeneratingMessageId, rowVirtualizer, scrollToMessageId])
+
+  useEffect(() => {
+    if (!showSuggestions) return
+    if (!autoScrollEnabledRef.current) return
+    rowVirtualizer.scrollToIndex(totalCount - 1, { align: 'end' })
+  }, [rowVirtualizer, showSuggestions, totalCount])
 
   // Note: Removed auto-scroll during streaming as it caused issues during regeneration.
   // Users can manually scroll if needed. Scroll only happens for NEW messages (above effect).
@@ -462,7 +482,9 @@ export function ChatMessagesVirtual({
         >
           {virtualItems.map((virtualRow) => {
             const isLoadingRow =
-              showLoadingIndicator && virtualRow.index === messages.length
+              loadingIndex !== null && virtualRow.index === loadingIndex
+            const isSuggestionsRow =
+              suggestionsIndex !== null && virtualRow.index === suggestionsIndex
             if (isLoadingRow) {
               return (
                 <div
@@ -482,6 +504,32 @@ export function ChatMessagesVirtual({
                       <span className="text-foreground animate-pulse">●●●</span>
                     </div>
                   </div>
+                </div>
+              )
+            }
+
+            if (isSuggestionsRow) {
+              return (
+                <div
+                  key="suggestions"
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  {suggestionsLoading ? (
+                    <ChatSuggestionsSkeleton />
+                  ) : (
+                    <ChatSuggestions
+                      suggestions={suggestions ?? []}
+                      onSelect={onSelectSuggestion}
+                    />
+                  )}
                 </div>
               )
             }

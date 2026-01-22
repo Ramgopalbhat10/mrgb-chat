@@ -38,6 +38,23 @@ interface ChatViewProps {
 
 const DEFAULT_MODEL_ID = 'google/gemini-3-flash'
 
+const hashString = (value: string) => {
+  let hash = 5381
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(i)
+  }
+  return (hash >>> 0).toString(16)
+}
+
+const buildSuggestionSignature = (assistantId: string, assistantText: string) =>
+  `${assistantId}:${hashString(assistantText)}`
+
+const createUserMessage = (id: string, text: string): UIMessage => ({
+  id,
+  role: 'user',
+  parts: [{ type: 'text', text }],
+})
+
 export function ChatView({
   conversationId,
   initialMessages = [],
@@ -48,7 +65,9 @@ export function ChatView({
   const scrollRef = useRef<HTMLDivElement>(null)
   const persistedMessageIds = useRef<Set<string>>(new Set())
   const hasSentPendingMessage = useRef(false)
+  const pendingMessageIdRef = useRef<string | null>(null)
   const titleLoadingIds = useAppStore((state) => state.titleLoadingIds)
+  const setPendingNewChat = useAppStore((state) => state.setPendingNewChat)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: conversations = [] } = useQuery(conversationsQueryOptions())
@@ -60,6 +79,12 @@ export function ChatView({
   const hasUserSelectedModelRef = useRef(false)
   const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null)
   const jumpTargetRef = useRef<string | null>(null)
+  const [suggestions, setSuggestions] = useState<string[] | null>(null)
+  const [suggestionsStatus, setSuggestionsStatus] = useState<
+    'idle' | 'loading' | 'ready' | 'error'
+  >('idle')
+  const suggestionsAbortRef = useRef<AbortController | null>(null)
+  const suggestionsSignatureRef = useRef<string | null>(null)
 
   // Track which message is being regenerated (null when not regenerating)
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<
@@ -232,6 +257,135 @@ export function ChatView({
 
     return undefined
   }, [])
+
+  const clearSuggestions = useCallback((resetSignature = false) => {
+    suggestionsAbortRef.current?.abort()
+    suggestionsAbortRef.current = null
+    setSuggestions(null)
+    setSuggestionsStatus('idle')
+    if (resetSignature) {
+      suggestionsSignatureRef.current = null
+    }
+  }, [])
+
+  const getSuggestionContext = useCallback(
+    (messages: UIMessage[], assistantId?: string) => {
+      if (messages.length === 0) return null
+      if (!assistantId && messages[messages.length - 1]?.role !== 'assistant') {
+        return null
+      }
+
+      let assistantIndex = -1
+      if (assistantId) {
+        assistantIndex = messages.findIndex(
+          (message) => message.id === assistantId,
+        )
+      }
+
+      if (assistantIndex === -1) {
+        for (let i = messages.length - 1; i >= 0; i -= 1) {
+          if (messages[i].role === 'assistant') {
+            assistantIndex = i
+            break
+          }
+        }
+      }
+
+      if (assistantIndex === -1) return null
+
+      const assistantMessage = messages[assistantIndex]
+      if (assistantMessage.role !== 'assistant') return null
+      const assistantText = getMessageContent(assistantMessage).trim()
+      if (!assistantText) return null
+
+      let userMessage: UIMessage | null = null
+      for (let i = assistantIndex - 1; i >= 0; i -= 1) {
+        if (messages[i].role === 'user') {
+          userMessage = messages[i]
+          break
+        }
+      }
+
+      if (!userMessage) return null
+
+      const userText = getMessageContent(userMessage).trim()
+      if (!userText) return null
+
+      const signature = buildSuggestionSignature(
+        assistantMessage.id,
+        assistantText,
+      )
+
+      return {
+        userMessage: userText,
+        assistantMessage: assistantText,
+        signature,
+      }
+    },
+    [getMessageContent],
+  )
+
+  const requestSuggestions = useCallback(
+    async (context: {
+      userMessage: string
+      assistantMessage: string
+      signature: string
+    }) => {
+      suggestionsAbortRef.current?.abort()
+      const controller = new AbortController()
+      suggestionsAbortRef.current = controller
+      suggestionsSignatureRef.current = context.signature
+      setSuggestions(null)
+      setSuggestionsStatus('loading')
+
+      try {
+        const response = await fetch('/api/suggestions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userMessage: context.userMessage,
+            assistantMessage: context.assistantMessage,
+          }),
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error(`Suggestions request failed: ${response.status}`)
+        }
+
+        const data = await response.json()
+        const rawSuggestions = Array.isArray(data?.suggestions)
+          ? data.suggestions
+          : []
+        const cleaned = rawSuggestions
+          .map((item: unknown) => (typeof item === 'string' ? item : ''))
+          .map((item: string) =>
+            item.replace(/`+/g, '').replace(/\s+/g, ' ').trim(),
+          )
+          .filter(Boolean)
+        const unique = Array.from(new Set(cleaned))
+        const nextSuggestions =
+          unique.length >= 5 ? unique.slice(0, 5) : cleaned.slice(0, 5)
+
+        if (controller.signal.aborted) return
+
+        if (nextSuggestions.length === 0) {
+          setSuggestions(null)
+          setSuggestionsStatus('idle')
+          return
+        }
+
+        setSuggestions(nextSuggestions)
+        setSuggestionsStatus('ready')
+      } catch (error) {
+        if (controller.signal.aborted) return
+        console.error('Failed to generate suggestions:', error)
+        setSuggestions(null)
+        setSuggestionsStatus('error')
+      }
+    },
+    [],
+  )
 
   const appendMessageToCache = useCallback(
     (messageData: PersistedMessage) => {
@@ -419,7 +573,7 @@ export function ChatView({
     id: conversationId,
     transport,
     experimental_throttle: 50,
-    onFinish: async ({ message }) => {
+    onFinish: async ({ message, messages, isAbort, isError }) => {
       // Persist assistant message when streaming completes
       await persistMessage(message)
       setMessages((current: UIMessage[]) =>
@@ -427,6 +581,14 @@ export function ChatView({
           msg.id === message.id ? compactMessageParts(msg) : msg,
         ),
       )
+
+      if (isAbort || isError || message.role !== 'assistant') return
+
+      const context = getSuggestionContext(messages, message.id)
+      if (!context) return
+      if (suggestionsSignatureRef.current === context.signature) return
+
+      requestSuggestions(context)
     },
   })
 
@@ -437,6 +599,48 @@ export function ChatView({
     setMessages,
     regenerate,
   } = chatResult as any
+
+  useEffect(() => {
+    const pendingId = pendingMessageIdRef.current
+    if (!pendingId) return
+    const hasPending = chatMessages.some(
+      (message: UIMessage) => message.id === pendingId && message.role === 'user',
+    )
+    if (!hasPending) return
+    pendingMessageIdRef.current = null
+    setPendingNewChat(null)
+  }, [chatMessages, setPendingNewChat])
+
+  useEffect(() => {
+    return () => {
+      suggestionsAbortRef.current?.abort()
+    }
+  }, [])
+
+  useEffect(() => {
+    clearSuggestions(true)
+  }, [conversationId, clearSuggestions])
+
+  useEffect(() => {
+    if (status === 'streaming' || status === 'submitted') {
+      clearSuggestions()
+    }
+  }, [clearSuggestions, status])
+
+  useEffect(() => {
+    if (status !== 'ready') return
+    if (suggestionsStatus === 'loading') return
+    const context = getSuggestionContext(chatMessages)
+    if (!context) return
+    if (suggestionsSignatureRef.current === context.signature) return
+    requestSuggestions(context)
+  }, [
+    chatMessages,
+    getSuggestionContext,
+    requestSuggestions,
+    status,
+    suggestionsStatus,
+  ])
 
   useEffect(() => {
     return () => {
@@ -511,6 +715,7 @@ export function ChatView({
   // Reload/regenerate function - uses AI SDK regenerate for in-place updates
   const handleRegenerate = useCallback(
     async (assistantMessageId: string, options?: RegenerationOptions) => {
+      clearSuggestions()
       // Find the assistant message being regenerated
       const assistantIndex = chatMessages.findIndex(
         (m: any) => m.id === assistantMessageId,
@@ -612,6 +817,7 @@ export function ChatView({
     },
     [
       chatMessages,
+      clearSuggestions,
       selectedModelId,
       regenerate,
       removeMessageFromCache,
@@ -626,6 +832,7 @@ export function ChatView({
   // Edit user message and regenerate - finds the next assistant message and regenerates with new content
   const handleEditMessage = useCallback(
     async (userMessageId: string, newContent: string) => {
+      clearSuggestions()
       // Find the user message being edited
       const userIndex = chatMessages.findIndex(
         (m: any) => m.id === userMessageId,
@@ -670,6 +877,7 @@ export function ChatView({
     },
     [
       chatMessages,
+      clearSuggestions,
       conversationId,
       handleRegenerate,
       sendMessage,
@@ -705,10 +913,23 @@ export function ChatView({
       const resolvedModelId = selectedModelIdRef.current ?? selectedModelId
 
       // Send message to AI
-      sendMessage(
+      const userMessage = createUserMessage(userMessageId, pendingMessage)
+      setMessages((current: UIMessage[]) => {
+        if (current.some((message) => message.id === userMessageId)) {
+          return current
+        }
+        return [...current, userMessage]
+      })
+      pendingMessageIdRef.current = userMessageId
+      const sendPromise = sendMessage(
         { text: pendingMessage, messageId: userMessageId },
         { body: { modelId: resolvedModelId } },
       )
+      sendPromise.catch((error: unknown) => {
+        console.error('Failed to send pending message:', error)
+        hasSentPendingMessage.current = false
+        pendingMessageIdRef.current = null
+      })
 
       // Persist user message
       const userMessageData = {
@@ -763,58 +984,90 @@ export function ChatView({
     }
   }, [chatMessages])
 
+  const sendUserMessage = useCallback(
+    (userText: string, modelId?: string) => {
+      const trimmed = userText.trim()
+      if (!trimmed) return
+
+      const resolvedModelId = modelId ?? selectedModelIdRef.current
+      const userMessageId = crypto.randomUUID()
+
+      // Send message to AI - useChat will handle adding the message and streaming
+      const userMessage = createUserMessage(userMessageId, trimmed)
+      setMessages((current: UIMessage[]) => {
+        if (current.some((message) => message.id === userMessageId)) {
+          return current
+        }
+        return [...current, userMessage]
+      })
+      const sendPromise = sendMessage(
+        { text: trimmed, messageId: userMessageId },
+        { body: { modelId: resolvedModelId } },
+      )
+      sendPromise.catch((error: unknown) => {
+        console.error('Failed to send message:', error)
+      })
+
+      // Persist user message after a short delay to not interfere with useChat state
+      setTimeout(async () => {
+        const userMessageData = {
+          id: userMessageId,
+          conversationId,
+          role: 'user' as const,
+          content: trimmed,
+          clientId: null,
+          metaJson: null,
+          createdAt: new Date(),
+        }
+
+        // Update conversation with selected modelId if not already set
+        if (conversation && resolvedModelId && !conversation.modelId) {
+          updateConversation.mutate({
+            id: conversationId,
+            updates: { modelId: resolvedModelId },
+          })
+        }
+
+        persistedMessageIds.current.add(userMessageId)
+        appendMessageToCache(userMessageData)
+
+        try {
+          await db.createMessage(userMessageData)
+        } catch (error) {
+          console.error('Failed to persist user message to IndexedDB:', error)
+        }
+
+        // Persist to server (fire-and-forget)
+        fetch(`/api/conversations/${conversationId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userMessageData),
+        }).catch(console.error)
+      }, 100)
+    },
+    [appendMessageToCache, conversation, conversationId, sendMessage, updateConversation],
+  )
+
   const handleSubmit = async (e: React.FormEvent, modelId?: string) => {
     e.preventDefault()
     if (!input.trim()) return
 
     const userText = input.trim()
     setInput('')
-    const resolvedModelId = modelId ?? selectedModelIdRef.current
-    const userMessageId = crypto.randomUUID()
-
-    // Send message to AI - useChat will handle adding the message and streaming
-    sendMessage(
-      { text: userText, messageId: userMessageId },
-      { body: { modelId: resolvedModelId } },
-    )
-
-    // Persist user message after a short delay to not interfere with useChat state
-    setTimeout(async () => {
-      const userMessageData = {
-        id: userMessageId,
-        conversationId,
-        role: 'user' as const,
-        content: userText,
-        clientId: null,
-        metaJson: null,
-        createdAt: new Date(),
-      }
-
-      // Update conversation with selected modelId if not already set
-      if (conversation && resolvedModelId && !conversation.modelId) {
-        updateConversation.mutate({
-          id: conversationId,
-          updates: { modelId: resolvedModelId },
-        })
-      }
-
-      persistedMessageIds.current.add(userMessageId)
-      appendMessageToCache(userMessageData)
-
-      try {
-        await db.createMessage(userMessageData)
-      } catch (error) {
-        console.error('Failed to persist user message to IndexedDB:', error)
-      }
-
-      // Persist to server (fire-and-forget)
-      fetch(`/api/conversations/${conversationId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userMessageData),
-      }).catch(console.error)
-    }, 100)
+    clearSuggestions()
+    sendUserMessage(userText, modelId)
   }
+
+  const handleSuggestionSelect = useCallback(
+    (suggestion: string) => {
+      const trimmed = suggestion.trim()
+      if (!trimmed) return
+      setInput('')
+      clearSuggestions()
+      sendUserMessage(trimmed, selectedModelIdRef.current)
+    },
+    [clearSuggestions, sendUserMessage, setInput],
+  )
 
   // Always show header for existing conversations
   const showHeader = true
@@ -871,6 +1124,9 @@ export function ChatView({
           messages={chatMessages}
           isLoading={isLoading || !!regeneratingMessageId}
           regeneratingMessageId={regeneratingMessageId}
+          suggestions={suggestions ?? undefined}
+          suggestionsLoading={suggestionsStatus === 'loading'}
+          onSelectSuggestion={handleSuggestionSelect}
           onReload={handleRegenerate}
           onEditMessage={handleEditMessage}
           onShareMessage={handleShareMessage}
