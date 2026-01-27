@@ -1,4 +1,5 @@
 import { useNavigate } from '@tanstack/react-router'
+import { useMemo } from 'react'
 import {
   Sidebar,
   SidebarContent,
@@ -23,6 +24,7 @@ import {
   Logout01Icon,
   StarIcon,
   Share01Icon,
+  GitBranchIcon,
 } from '@hugeicons/core-free-icons'
 import { Input } from './ui/input'
 import { Link, useLocation } from '@tanstack/react-router'
@@ -46,6 +48,10 @@ export function AppSidebar({
   onNewChat,
   onSelectConversation,
 }: AppSidebarProps) {
+  const conversationIdSet = useMemo(
+    () => new Set(conversations.map((conversation) => conversation.id)),
+    [conversations],
+  )
   const location = useLocation()
   const navigate = useNavigate()
   const titleLoadingIds = useAppStore((state) => state.titleLoadingIds)
@@ -195,6 +201,29 @@ export function AppSidebar({
                   .filter((c) => !c.archived)
                   .map((conversation) => {
                     const titleLoading = titleLoadingIds.has(conversation.id)
+                    const isUuidLike = (value?: string | null) =>
+                      typeof value === 'string' &&
+                      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                        value,
+                      )
+                    const hasValidForkId =
+                      isUuidLike(conversation.forkedFromConversationId) &&
+                      conversationIdSet.has(
+                        conversation.forkedFromConversationId as string,
+                      )
+                    const hasValidForkMessageId =
+                      typeof conversation.forkedFromMessageId === 'string' &&
+                      conversation.forkedFromMessageId.trim().length > 0 &&
+                      conversation.forkedFromMessageId !== 'null' &&
+                      conversation.forkedFromMessageId !== 'undefined'
+                    const isBranched =
+                      hasValidForkId &&
+                      hasValidForkMessageId &&
+                      conversation.forkedFromConversationId !== conversation.id
+                    const displayTitle =
+                      isBranched && conversation.title.startsWith('Branch of ')
+                        ? conversation.title.replace(/^Branch of\s+/, '')
+                        : conversation.title
                     // Only highlight conversation if we're on a conversation route
                     const isActive =
                       isOnConversationRoute &&
@@ -223,11 +252,19 @@ export function AppSidebar({
                                     className="text-yellow-500 shrink-0"
                                   />
                                 )}
+                                {isBranched && (
+                                  <HugeiconsIcon
+                                    icon={GitBranchIcon}
+                                    size={12}
+                                    strokeWidth={2}
+                                    className="text-muted-foreground/70 shrink-0"
+                                  />
+                                )}
                                 {titleLoading ? (
                                   <span className="flex-1 h-3 bg-muted/50 rounded animate-pulse" />
                                 ) : (
                                   <span className="truncate">
-                                    {conversation.title}
+                                    {displayTitle}
                                   </span>
                                 )}
                               </SidebarMenuButton>
@@ -237,7 +274,7 @@ export function AppSidebar({
                             side="right"
                             className="bg-secondary text-secondary-foreground max-w-xs"
                           >
-                            {conversation.title}
+                            {displayTitle}
                           </TooltipContent>
                         </Tooltip>
                         {/* Three dots menu - always visible on mobile, hover on desktop */}

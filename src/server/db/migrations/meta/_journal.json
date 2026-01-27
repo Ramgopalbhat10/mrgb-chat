@@ -43,6 +43,13 @@
       "when": 1768737306084,
       "tag": "0005_talented_salo",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1769500181980,
+      "tag": "0006_noisy_boom_boom",
+      "breakpoints": true
     }
   ]
 }

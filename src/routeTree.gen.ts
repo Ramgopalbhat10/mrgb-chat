@@ -35,6 +35,7 @@ import { Route as ApiProjectsIdAddConversationRouteImport } from './routes/api/p
 import { Route as ApiConversationsIdShareRouteImport } from './routes/api/conversations/$id.share'
 import { Route as ApiConversationsIdProjectsRouteImport } from './routes/api/conversations/$id.projects'
 import { Route as ApiConversationsIdMessagesRouteImport } from './routes/api/conversations/$id.messages'
+import { Route as ApiConversationsIdBranchRouteImport } from './routes/api/conversations/$id.branch'
 
 const SharedRoute = SharedRouteImport.update({
   id: '/shared',
@@ -170,6 +171,12 @@ const ApiConversationsIdMessagesRoute =
     path: '/messages',
     getParentRoute: () => ApiConversationsIdRoute,
   } as any)
+const ApiConversationsIdBranchRoute =
+  ApiConversationsIdBranchRouteImport.update({
+    id: '/branch',
+    path: '/branch',
+    getParentRoute: () => ApiConversationsIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -193,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/api/projects/metadata': typeof ApiProjectsMetadataRoute
   '/api/conversations': typeof ApiConversationsIndexRoute
   '/api/projects': typeof ApiProjectsIndexRoute
+  '/api/conversations/$id/branch': typeof ApiConversationsIdBranchRoute
   '/api/conversations/$id/messages': typeof ApiConversationsIdMessagesRoute
   '/api/conversations/$id/projects': typeof ApiConversationsIdProjectsRoute
   '/api/conversations/$id/share': typeof ApiConversationsIdShareRoute
@@ -221,6 +229,7 @@ export interface FileRoutesByTo {
   '/api/projects/metadata': typeof ApiProjectsMetadataRoute
   '/api/conversations': typeof ApiConversationsIndexRoute
   '/api/projects': typeof ApiProjectsIndexRoute
+  '/api/conversations/$id/branch': typeof ApiConversationsIdBranchRoute
   '/api/conversations/$id/messages': typeof ApiConversationsIdMessagesRoute
   '/api/conversations/$id/projects': typeof ApiConversationsIdProjectsRoute
   '/api/conversations/$id/share': typeof ApiConversationsIdShareRoute
@@ -250,6 +259,7 @@ export interface FileRoutesById {
   '/api/projects/metadata': typeof ApiProjectsMetadataRoute
   '/api/conversations/': typeof ApiConversationsIndexRoute
   '/api/projects/': typeof ApiProjectsIndexRoute
+  '/api/conversations/$id/branch': typeof ApiConversationsIdBranchRoute
   '/api/conversations/$id/messages': typeof ApiConversationsIdMessagesRoute
   '/api/conversations/$id/projects': typeof ApiConversationsIdProjectsRoute
   '/api/conversations/$id/share': typeof ApiConversationsIdShareRoute
@@ -280,6 +290,7 @@ export interface FileRouteTypes {
     | '/api/projects/metadata'
     | '/api/conversations'
     | '/api/projects'
+    | '/api/conversations/$id/branch'
     | '/api/conversations/$id/messages'
     | '/api/conversations/$id/projects'
     | '/api/conversations/$id/share'
@@ -308,6 +319,7 @@ export interface FileRouteTypes {
     | '/api/projects/metadata'
     | '/api/conversations'
     | '/api/projects'
+    | '/api/conversations/$id/branch'
     | '/api/conversations/$id/messages'
     | '/api/conversations/$id/projects'
     | '/api/conversations/$id/share'
@@ -336,6 +348,7 @@ export interface FileRouteTypes {
     | '/api/projects/metadata'
     | '/api/conversations/'
     | '/api/projects/'
+    | '/api/conversations/$id/branch'
     | '/api/conversations/$id/messages'
     | '/api/conversations/$id/projects'
     | '/api/conversations/$id/share'
@@ -551,16 +564,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiConversationsIdMessagesRouteImport
       parentRoute: typeof ApiConversationsIdRoute
     }
+    '/api/conversations/$id/branch': {
+      id: '/api/conversations/$id/branch'
+      path: '/branch'
+      fullPath: '/api/conversations/$id/branch'
+      preLoaderRoute: typeof ApiConversationsIdBranchRouteImport
+      parentRoute: typeof ApiConversationsIdRoute
+    }
   }
 }
 
 interface ApiConversationsIdRouteChildren {
+  ApiConversationsIdBranchRoute: typeof ApiConversationsIdBranchRoute
   ApiConversationsIdMessagesRoute: typeof ApiConversationsIdMessagesRoute
   ApiConversationsIdProjectsRoute: typeof ApiConversationsIdProjectsRoute
   ApiConversationsIdShareRoute: typeof ApiConversationsIdShareRoute
 }
 
 const ApiConversationsIdRouteChildren: ApiConversationsIdRouteChildren = {
+  ApiConversationsIdBranchRoute: ApiConversationsIdBranchRoute,
   ApiConversationsIdMessagesRoute: ApiConversationsIdMessagesRoute,
   ApiConversationsIdProjectsRoute: ApiConversationsIdProjectsRoute,
   ApiConversationsIdShareRoute: ApiConversationsIdShareRoute,

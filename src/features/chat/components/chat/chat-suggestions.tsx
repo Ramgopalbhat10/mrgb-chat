@@ -11,7 +11,7 @@ export function ChatSuggestions({ suggestions, onSelect }: ChatSuggestionsProps)
   if (suggestions.length === 0) return null
 
   return (
-    <div className="mt-6 border-t border-border/50 pt-4">
+    <div className="mt-6 pt-4">
       <div className="text-xs font-medium text-muted-foreground/70 uppercase tracking-[0.2em] mb-3">
         Related
       </div>
@@ -39,7 +39,7 @@ export function ChatSuggestions({ suggestions, onSelect }: ChatSuggestionsProps)
 
 export function ChatSuggestionsSkeleton() {
   return (
-    <div className="mt-6 border-t border-border/50 pt-4">
+    <div className="mt-6 pt-4">
       <div className="text-xs font-medium text-muted-foreground/70 uppercase tracking-[0.2em] mb-3">
         Related
       </div>

@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   BubbleChatIcon,
+  GitBranchIcon,
   StarIcon,
   Folder01Icon,
   Add01Icon,
@@ -58,6 +59,10 @@ export function ConversationList({
 }: ConversationListProps) {
   const navigate = useNavigate()
   const deleteConversation = useDeleteConversation()
+  const conversationIdSet = useMemo(
+    () => new Set(conversations.map((conversation) => conversation.id)),
+    [conversations],
+  )
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isSelectionMode, setIsSelectionMode] = useState(false)
@@ -229,6 +234,29 @@ export function ConversationList({
         <div className="space-y-1">
           {visibleConversations.map((conversation) => {
             const isSelected = selectedIds.has(conversation.id)
+            const isUuidLike = (value?: string | null) =>
+              typeof value === 'string' &&
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                value,
+              )
+            const hasValidForkId =
+              isUuidLike(conversation.forkedFromConversationId) &&
+              conversationIdSet.has(
+                conversation.forkedFromConversationId as string,
+              )
+            const hasValidForkMessageId =
+              typeof conversation.forkedFromMessageId === 'string' &&
+              conversation.forkedFromMessageId.trim().length > 0 &&
+              conversation.forkedFromMessageId !== 'null' &&
+              conversation.forkedFromMessageId !== 'undefined'
+            const isBranched =
+              hasValidForkId &&
+              hasValidForkMessageId &&
+              conversation.forkedFromConversationId !== conversation.id
+            const displayTitle =
+              isBranched && conversation.title.startsWith('Branch of ')
+                ? conversation.title.replace(/^Branch of\s+/, '')
+                : conversation.title
             return (
               <div
                 key={conversation.id}
@@ -261,7 +289,7 @@ export function ConversationList({
                       </div>
                     ) : (
                       <HugeiconsIcon
-                        icon={BubbleChatIcon}
+                        icon={isBranched ? GitBranchIcon : BubbleChatIcon}
                         size={16}
                         strokeWidth={2}
                         className="text-muted-foreground/60 shrink-0 mt-0.5"
@@ -270,7 +298,7 @@ export function ConversationList({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm text-foreground truncate">
-                          {conversation.title}
+                          {displayTitle}
                         </h3>
                         {conversation.starred && (
                           <HugeiconsIcon

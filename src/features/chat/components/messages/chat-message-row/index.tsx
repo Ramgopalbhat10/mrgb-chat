@@ -12,6 +12,7 @@ import {
   ArrowExpand02Icon,
   Minimize01Icon,
   Exchange01Icon,
+  GitBranchIcon,
   PencilEdit01Icon,
   Cancel01Icon,
   SentIcon,
@@ -139,6 +140,7 @@ export interface ChatMessageRowProps {
   userInput: string
   onOpenReasoning: (messageId: string) => void
   onReload?: (assistantMessageId: string, options?: RegenerationOptions) => void
+  onBranchFromAssistant?: (assistantMessageId: string) => void
   onOpenShareDialog: (
     messageId: string,
     userInput: string,
@@ -161,6 +163,7 @@ function ChatMessageRowComponent({
   userInput,
   onOpenReasoning,
   onReload,
+  onBranchFromAssistant,
   onOpenShareDialog,
   onEditMessage,
 }: ChatMessageRowProps) {
@@ -593,6 +596,13 @@ function ChatMessageRowComponent({
                         : 'Share'
                     }
                   />
+                  {onBranchFromAssistant && (
+                    <MessageAction
+                      icon={GitBranchIcon}
+                      onClick={() => onBranchFromAssistant(message.id)}
+                      tooltip="Branch from here"
+                    />
+                  )}
                 </div>
               )}
             </div>

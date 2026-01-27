@@ -13,6 +13,22 @@ import {
 import { requireAuth } from '@/server/auth/get-session'
 
 const PAGE_SIZE = 30
+const toIsoOrNull = (value: unknown, fallback?: Date): string | null => {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime())
+      ? fallback?.toISOString() ?? null
+      : value.toISOString()
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime())
+      ? fallback?.toISOString() ?? null
+      : parsed.toISOString()
+  }
+
+  return fallback?.toISOString() ?? null
+}
 
 export const Route = createFileRoute('/api/conversations/')({
   server: {
@@ -76,7 +92,7 @@ export const Route = createFileRoute('/api/conversations/')({
             const lastItem = items[items.length - 1]
             const nextCursor =
               hasMore && lastItem
-                ? (lastItem.lastMessageAt ?? lastItem.createdAt)?.toISOString()
+                ? toIsoOrNull(lastItem.lastMessageAt ?? lastItem.createdAt)
                 : null
 
             const [{ latestRevision }] = await db
@@ -132,6 +148,9 @@ export const Route = createFileRoute('/api/conversations/')({
               archived: conversations.archived,
               isPublic: conversations.isPublic,
               revision: conversations.revision,
+              forkedFromConversationId: conversations.forkedFromConversationId,
+              forkedFromMessageId: conversations.forkedFromMessageId,
+              forkedAt: conversations.forkedAt,
             })
             .from(conversations)
             .where(and(...conditions))
@@ -145,15 +164,19 @@ export const Route = createFileRoute('/api/conversations/')({
           const items = hasMore ? result.slice(0, -1) : result
 
           // Transform to response format
+          const fallbackNow = new Date()
           const titles: ConversationTitle[] = items.map((c) => ({
             id: c.id,
             title: c.title,
-            createdAt: c.createdAt.toISOString(),
-            lastMessageAt: c.lastMessageAt?.toISOString() ?? null,
+            createdAt: toIsoOrNull(c.createdAt, fallbackNow) ?? fallbackNow.toISOString(),
+            lastMessageAt: toIsoOrNull(c.lastMessageAt) ?? null,
             starred: c.starred,
             archived: c.archived,
             isPublic: c.isPublic,
             revision: c.revision,
+            forkedFromConversationId: c.forkedFromConversationId ?? null,
+            forkedFromMessageId: c.forkedFromMessageId ?? null,
+            forkedAt: toIsoOrNull(c.forkedAt) ?? null,
           }))
 
           const lastItem = titles[titles.length - 1]
@@ -199,11 +222,15 @@ export const Route = createFileRoute('/api/conversations/')({
           const lastMessageAt = body.lastMessageAt
             ? new Date(body.lastMessageAt)
             : null
+          const forkedAt = body.forkedAt ? new Date(body.forkedAt) : null
 
           const newConversation = {
             id,
             title: body.title ?? 'New conversation',
             starred: body.starred ?? false,
+            forkedFromConversationId: body.forkedFromConversationId ?? null,
+            forkedFromMessageId: body.forkedFromMessageId ?? null,
+            forkedAt,
             createdAt: now,
             updatedAt: now,
             lastMessageAt,

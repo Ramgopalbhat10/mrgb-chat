@@ -99,3 +99,18 @@
 - Wire suggestion generation to `ChatView` lifecycle events (stream finish + reload) without persisting suggestions to IndexedDB, DB, or caches.
 - Render suggestions within the virtualized message list so they scroll with responses and respect the chat layout.
 - Introduce `/api/suggestions` using AI SDK structured output, with code blocks removed from the user/assistant context before generating prompts.
+
+## Goal 08
+- Add assistant-only branching that copies chat history up to a selected response into a new conversation that appears as a fresh, recent chat.
+
+## Goal 08 Changes
+
+### Branching UI + client persistence
+- Added a "Branch from here" action on assistant messages and wired it to create a new conversation with copied messages in cache + IndexedDB before navigating: `src/features/chat/components/messages/chat-message-row/index.tsx`, `src/features/chat/components/chat/chat-messages-virtual.tsx`, `src/features/chat/components/chat/chat-view.tsx`.
+- Added a branch indicator footer anchored after the branched assistant message (not the end of the chat) and a branch icon marker in sidebar lists: `src/features/chat/components/chat/chat-messages-virtual.tsx`, `src/features/chat/components/chat/chat-view.tsx`, `src/features/chat/components/conversations/conversation-list.tsx`, `src/components/app-sidebar.tsx`.
+- Added extra spacing around the branch footer to separate it from the next user message: `src/features/chat/components/chat/chat-messages-virtual.tsx`.
+
+### Server branch endpoint
+- Added a dedicated branch endpoint that validates the pivot assistant message and copies messages into a new conversation in a single transaction: `src/routes/api/conversations/$id.branch.ts`.
+- Added forked-from metadata fields on conversations to track branch lineage in storage and caches: `src/server/db/schema.ts`, `src/server/db/migrations/0006_add_conversation_branching.sql`, `src/routes/api/conversations/index.ts`, `src/lib/indexeddb.ts`.
+- Ensured branched message copies preserve deterministic ordering by spacing createdAt timestamps by 1s and storing the copied pivot message id for anchoring: `src/features/chat/components/chat/chat-view.tsx`, `src/routes/api/conversations/$id.branch.ts`.

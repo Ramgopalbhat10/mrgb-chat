@@ -27,6 +27,7 @@ interface ChatMessagesVirtualProps {
   onLoadMore?: () => void
   hasMore?: boolean
   onReload?: (assistantMessageId: string, options?: RegenerationOptions) => void
+  onBranchFromAssistant?: (assistantMessageId: string) => void
   onEditMessage?: (userMessageId: string, newContent: string) => void
   onShareMessage?: (
     messageId: string,
@@ -37,6 +38,7 @@ interface ChatMessagesVirtualProps {
   sharedMessageMap?: Map<string, string> // originalMessageId -> shareId
   modelId?: string
   scrollToMessageId?: string
+  branchInfo?: { id: string; title: string; anchorMessageId: string } | null
 }
 
 export function ChatMessagesVirtual({
@@ -49,13 +51,21 @@ export function ChatMessagesVirtual({
   onLoadMore,
   hasMore,
   onReload,
+  onBranchFromAssistant,
   onEditMessage,
   onShareMessage,
   onUnshareMessage,
   sharedMessageMap,
   modelId,
   scrollToMessageId,
+  branchInfo,
 }: ChatMessagesVirtualProps) {
+  type BranchInfo = NonNullable<ChatMessagesVirtualProps['branchInfo']>
+  type Row =
+    | { type: 'message'; message: UIMessage; messageIndex: number }
+    | { type: 'branch'; branchInfo: BranchInfo }
+    | { type: 'loading' }
+    | { type: 'suggestions' }
   const parentRef = useRef<HTMLDivElement>(null)
   const lastMessageCount = useRef(messages.length)
   const hasScrolledToTarget = useRef(false)
@@ -158,12 +168,40 @@ export function ChatMessagesVirtual({
 
   const showSuggestions =
     !!suggestionsLoading || (suggestions && suggestions.length > 0)
-  const loadingIndex = showLoadingIndicator ? messages.length : null
-  const suggestionsIndex = showSuggestions
-    ? messages.length + (showLoadingIndicator ? 1 : 0)
-    : null
-  const totalCount =
-    messages.length + (showLoadingIndicator ? 1 : 0) + (showSuggestions ? 1 : 0)
+  const branchAnchorIndex = useMemo(() => {
+    if (!branchInfo?.anchorMessageId) return null
+    const index = messages.findIndex(
+      (message) => message.id === branchInfo.anchorMessageId,
+    )
+    return index >= 0 ? index : null
+  }, [branchInfo?.anchorMessageId, messages])
+
+  const rows = useMemo<Row[]>(() => {
+    const base: Row[] = messages.map((message, messageIndex) => ({
+      type: 'message',
+      message,
+      messageIndex,
+    }))
+
+    if (branchAnchorIndex !== null && branchInfo) {
+      base.splice(branchAnchorIndex + 1, 0, {
+        type: 'branch',
+        branchInfo,
+      })
+    }
+
+    if (showLoadingIndicator) {
+      base.push({ type: 'loading' })
+    }
+
+    if (showSuggestions) {
+      base.push({ type: 'suggestions' })
+    }
+
+    return base
+  }, [branchAnchorIndex, branchInfo, messages, showLoadingIndicator, showSuggestions])
+
+  const totalCount = rows.length
   const rowVirtualizer = useVirtualizer({
     count: totalCount,
     getScrollElement: () => parentRef.current,
@@ -481,11 +519,43 @@ export function ChatMessagesVirtual({
           style={{ height: totalSize }}
         >
           {virtualItems.map((virtualRow) => {
-            const isLoadingRow =
-              loadingIndex !== null && virtualRow.index === loadingIndex
-            const isSuggestionsRow =
-              suggestionsIndex !== null && virtualRow.index === suggestionsIndex
-            if (isLoadingRow) {
+            const row = rows[virtualRow.index]
+            if (!row) return null
+
+            if (row.type === 'branch') {
+              return (
+                <div
+                  key="branch-footer"
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground/70">
+                    <div className="h-px flex-1 bg-border/60" />
+                    <span className="whitespace-nowrap">
+                      Branched from{' '}
+                      <a
+                        href={`/chat/${row.branchInfo.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
+                      >
+                        {row.branchInfo.title}
+                      </a>
+                    </span>
+                    <div className="h-px flex-1 bg-border/60" />
+                  </div>
+                </div>
+              )
+            }
+
+            if (row.type === 'loading') {
               return (
                 <div
                   key="loading"
@@ -508,7 +578,7 @@ export function ChatMessagesVirtual({
               )
             }
 
-            if (isSuggestionsRow) {
+            if (row.type === 'suggestions') {
               return (
                 <div
                   key="suggestions"
@@ -534,11 +604,11 @@ export function ChatMessagesVirtual({
               )
             }
 
-            const message = messages[virtualRow.index]
+            const message = row.message
             if (!message) return null
 
             const previousMessage =
-              virtualRow.index > 0 ? messages[virtualRow.index - 1] : null
+              row.messageIndex > 0 ? messages[row.messageIndex - 1] : null
             const userInput = previousMessage
               ? getMessageText(previousMessage)
               : ''
@@ -577,6 +647,7 @@ export function ChatMessagesVirtual({
                   userInput={userInput}
                   onOpenReasoning={openReasoning}
                   onReload={onReload}
+                  onBranchFromAssistant={onBranchFromAssistant}
                   onOpenShareDialog={openShareDialog}
                   onEditMessage={onEditMessage}
                 />

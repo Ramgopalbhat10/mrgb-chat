@@ -56,6 +56,9 @@ interface ServerConversation {
   updatedAt?: string
   lastMessageAt: string | null
   revision?: number
+  forkedFromConversationId?: string | null
+  forkedFromMessageId?: string | null
+  forkedAt?: string | null
 }
 
 async function fetchAllConversationsFromServer(): Promise<ServerConversation[]> {
@@ -103,6 +106,16 @@ function mergeConversationsWithLocal(
     const fallbackCreatedAt = localConv?.createdAt ?? new Date()
     const fallbackUpdatedAt = localConv?.updatedAt ?? new Date()
 
+    const forkedFromConversationId =
+      typeof serverConv.forkedFromConversationId === 'string'
+        ? serverConv.forkedFromConversationId
+        : null
+    const forkedFromMessageId =
+      typeof serverConv.forkedFromMessageId === 'string'
+        ? serverConv.forkedFromMessageId
+        : null
+    const forkedAt = parseDateOrNull(serverConv.forkedAt)
+
     return {
       id: serverConv.id,
       title: serverConv.title,
@@ -110,6 +123,9 @@ function mergeConversationsWithLocal(
       archived: serverConv.archived,
       isPublic: serverConv.isPublic,
       revision: serverConv.revision,
+      forkedFromConversationId,
+      forkedFromMessageId,
+      forkedAt,
       modelId: localConv?.modelId,
       createdAt: parseDateOrFallback(serverConv.createdAt, fallbackCreatedAt),
       updatedAt: parseDateOrFallback(serverConv.updatedAt, fallbackUpdatedAt),
@@ -128,6 +144,9 @@ async function syncConversationsToIndexedDB(conversations: Conversation[]) {
         archived: conv.archived,
         isPublic: conv.isPublic,
         revision: conv.revision,
+        forkedFromConversationId: conv.forkedFromConversationId ?? null,
+        forkedFromMessageId: conv.forkedFromMessageId ?? null,
+        forkedAt: conv.forkedAt ?? null,
         lastMessageAt: conv.lastMessageAt,
         createdAt: conv.createdAt,
         updatedAt: conv.updatedAt,
@@ -215,6 +234,11 @@ export const conversationDetailQueryOptions = (id: string) =>
         archived: serverConversation.archived,
         isPublic: serverConversation.isPublic,
         revision: serverConversation.revision,
+        forkedFromConversationId:
+          serverConversation.forkedFromConversationId ?? null,
+        forkedFromMessageId:
+          serverConversation.forkedFromMessageId ?? null,
+        forkedAt: parseDateOrNull(serverConversation.forkedAt),
         modelId: undefined,
         createdAt: parseDateOrNow(serverConversation.createdAt),
         updatedAt: parseDateOrNow(serverConversation.updatedAt),

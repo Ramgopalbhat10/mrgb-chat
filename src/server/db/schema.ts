@@ -73,6 +73,9 @@ export const conversations = sqliteTable('conversations', {
   archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
   isPublic: integer('is_public', { mode: 'boolean' }).notNull().default(false),
   revision: integer('revision').notNull().default(0),
+  forkedFromConversationId: text('forked_from_conversation_id'),
+  forkedFromMessageId: text('forked_from_message_id'),
+  forkedAt: integer('forked_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),

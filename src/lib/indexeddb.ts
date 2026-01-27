@@ -9,6 +9,9 @@ export interface Conversation {
   archived: boolean
   isPublic: boolean
   revision?: number
+  forkedFromConversationId?: string | null
+  forkedFromMessageId?: string | null
+  forkedAt?: Date | null
   createdAt: Date
   updatedAt: Date
   lastMessageAt: Date | null
@@ -38,7 +41,7 @@ export interface ConversationProject {
 }
 
 const DB_NAME = 'mrgb-chat-db'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 let dbPromise: Promise<IDBPDatabase> | null = null
 

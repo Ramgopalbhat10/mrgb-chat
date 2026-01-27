@@ -19,6 +19,9 @@ export interface ConversationTitle {
   archived?: boolean
   isPublic?: boolean
   revision?: number
+  forkedFromConversationId?: string | null
+  forkedFromMessageId?: string | null
+  forkedAt?: string | null
 }
 
 // Type for cached project with count

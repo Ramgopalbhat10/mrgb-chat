@@ -45,10 +45,10 @@ DROP TABLE `session`;--> statement-breakpoint
 ALTER TABLE `__new_session` RENAME TO `session`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
 CREATE UNIQUE INDEX `session_token_unique` ON `session` (`token`);--> statement-breakpoint
-DROP INDEX `users_github_user_id_unique`;--> statement-breakpoint
-DROP INDEX "session_token_unique";--> statement-breakpoint
-DROP INDEX "user_email_unique";--> statement-breakpoint
-DROP INDEX "web_documents_canonical_url_unique";--> statement-breakpoint
+DROP INDEX IF EXISTS `users_github_user_id_unique`;--> statement-breakpoint
+DROP INDEX IF EXISTS "session_token_unique";--> statement-breakpoint
+DROP INDEX IF EXISTS "user_email_unique";--> statement-breakpoint
+DROP INDEX IF EXISTS "web_documents_canonical_url_unique";--> statement-breakpoint
 ALTER TABLE `user` ALTER COLUMN "email" TO "email" text NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX `user_email_unique` ON `user` (`email`);--> statement-breakpoint
 CREATE UNIQUE INDEX `web_documents_canonical_url_unique` ON `web_documents` (`canonical_url`);--> statement-breakpoint

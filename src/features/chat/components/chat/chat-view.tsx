@@ -14,6 +14,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { SidebarLeftIcon } from '@hugeicons/core-free-icons'
 import {
   availableModelsQueryOptions,
+  conversationKeys,
   conversationsQueryOptions,
   sharedItemsQueryOptions,
   sharedKeys,
@@ -95,6 +96,45 @@ export function ChatView({
   const conversation = conversations.find((c) => c.id === conversationId)
   const title = conversation?.title
   const titleIsLoading = titleLoadingIds.has(conversationId)
+  const branchInfo = useMemo(() => {
+    const isUuidLike = (value?: string | null) =>
+      typeof value === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        value,
+      )
+    const isNonEmptyString = (value?: string | null) =>
+      typeof value === 'string' &&
+      value.trim().length > 0 &&
+      value !== 'null' &&
+      value !== 'undefined'
+    const forkedFromId = conversation?.forkedFromConversationId
+    const resolvedForkedFromId =
+      isUuidLike(forkedFromId) ? forkedFromId : null
+    const forkedFromMessageId = conversation?.forkedFromMessageId
+    const resolvedForkedFromMessageId =
+      isNonEmptyString(forkedFromMessageId) ? forkedFromMessageId : null
+    if (
+      !resolvedForkedFromId ||
+      !resolvedForkedFromMessageId ||
+      resolvedForkedFromId === conversation?.id
+    ) {
+      return null
+    }
+    const sourceConversation = conversations.find(
+      (conv) => conv.id === resolvedForkedFromId,
+    )
+    if (!sourceConversation) return null
+    return {
+      id: resolvedForkedFromId,
+      title: sourceConversation.title,
+      anchorMessageId: resolvedForkedFromMessageId,
+    }
+  }, [
+    conversation?.forkedFromConversationId,
+    conversation?.forkedFromMessageId,
+    conversation?.id,
+    conversations,
+  ])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -257,6 +297,130 @@ export function ChatView({
 
     return undefined
   }, [])
+
+  const buildMetaJson = useCallback(
+    (message: UIMessage) => {
+      const meta =
+        message.role === 'assistant' ? getMessageMeta(message) : undefined
+
+      const reasoningParts = message.parts
+        ?.filter((part) => part.type === 'reasoning')
+        .map((part) => {
+          const reasoningPart = part as {
+            type: 'reasoning'
+            text: string
+            state?: 'streaming' | 'done'
+          }
+          return {
+            type: 'reasoning' as const,
+            text: reasoningPart.text,
+            state: 'done' as const,
+          }
+        })
+
+      return meta?.usage || (reasoningParts && reasoningParts.length > 0)
+        ? JSON.stringify({
+            usage: meta?.usage,
+            modelId: meta?.modelId,
+            gatewayCost: meta?.gatewayCost,
+            reasoningParts: reasoningParts?.length ? reasoningParts : undefined,
+          })
+        : null
+    },
+    [getMessageMeta],
+  )
+
+  const areMessageMetasEqual = useCallback(
+    (
+      currentMeta: ReturnType<typeof getMessageMeta> | undefined,
+      nextMeta: ReturnType<typeof getMessageMeta> | undefined,
+    ) => {
+      if (!currentMeta && !nextMeta) return true
+      if (!currentMeta || !nextMeta) return false
+
+      if ((currentMeta.modelId ?? null) !== (nextMeta.modelId ?? null)) {
+        return false
+      }
+      if ((currentMeta.gatewayCost ?? null) !== (nextMeta.gatewayCost ?? null)) {
+        return false
+      }
+
+      const currentUsage = currentMeta.usage
+      const nextUsage = nextMeta.usage
+      if (
+        (currentUsage?.inputTokens ?? null) !==
+          (nextUsage?.inputTokens ?? null) ||
+        (currentUsage?.outputTokens ?? null) !==
+          (nextUsage?.outputTokens ?? null) ||
+        (currentUsage?.totalTokens ?? null) !==
+          (nextUsage?.totalTokens ?? null) ||
+        (currentUsage?.reasoningTokens ?? null) !==
+          (nextUsage?.reasoningTokens ?? null) ||
+        (currentUsage?.gatewayCost ?? null) !==
+          (nextUsage?.gatewayCost ?? null)
+      ) {
+        return false
+      }
+
+      return true
+    },
+    [],
+  )
+
+  const mergeMessagesFromCache = useCallback(
+    (current: UIMessage[], cached: UIMessage[]) => {
+      if (cached.length === 0) return current
+      if (current.length === 0) return cached
+
+      const currentById = new Map(current.map((message) => [message.id, message]))
+      const cachedIds = new Set(cached.map((message) => message.id))
+      let changed = false
+
+      const merged = cached.map((cachedMessage) => {
+        const currentMessage = currentById.get(cachedMessage.id)
+        if (!currentMessage) {
+          changed = true
+          return cachedMessage
+        }
+
+        const currentText = getMessageContent(currentMessage)
+        const cachedText = getMessageContent(cachedMessage)
+        if (currentText !== cachedText) {
+          changed = true
+          return cachedMessage
+        }
+
+        const currentMeta = getMessageMeta(currentMessage)
+        const cachedMeta = getMessageMeta(cachedMessage)
+        if (areMessageMetasEqual(currentMeta, cachedMeta)) {
+          return currentMessage
+        }
+
+        if (!cachedMeta) {
+          return currentMessage
+        }
+
+        changed = true
+        return {
+          ...currentMessage,
+          metadata: {
+            ...(currentMessage as any).metadata,
+            ...(cachedMessage as any).metadata,
+          },
+        } as UIMessage
+      })
+
+      for (const currentMessage of current) {
+        if (!cachedIds.has(currentMessage.id)) {
+          merged.push(currentMessage)
+          changed = true
+        }
+      }
+
+      return changed ? merged : current
+    },
+    [areMessageMetasEqual, getMessageContent, getMessageMeta],
+  )
 
   const clearSuggestions = useCallback((resetSignature = false) => {
     suggestionsAbortRef.current?.abort()
@@ -435,37 +599,7 @@ export function ChatView({
       // Skip empty messages (streaming in progress)
       if (!content) return
 
-      // Extract usage metadata for assistant messages (from message.metadata set by API)
-      const meta =
-        message.role === 'assistant' ? getMessageMeta(message) : undefined
-
-      // Extract reasoning parts to persist them
-      const reasoningParts = message.parts
-        ?.filter((part) => part.type === 'reasoning')
-        .map((part) => {
-          const reasoningPart = part as {
-            type: 'reasoning'
-            text: string
-            state?: 'streaming' | 'done'
-          }
-          return {
-            type: 'reasoning' as const,
-            text: reasoningPart.text,
-            state: 'done' as const,
-          }
-        })
-
-      const metaJson =
-        meta?.usage || (reasoningParts && reasoningParts.length > 0)
-          ? JSON.stringify({
-              usage: meta?.usage,
-              modelId: meta?.modelId,
-              gatewayCost: meta?.gatewayCost,
-              reasoningParts: reasoningParts?.length
-                ? reasoningParts
-                : undefined,
-            })
-          : null
+      const metaJson = buildMetaJson(message)
 
       // console.log('Persisting message:', { id: message.id, role: message.role, contentLength: content.length, meta })
 
@@ -530,7 +664,13 @@ export function ChatView({
         persistedMessageIds.current.delete(message.id)
       }
     },
-    [appendMessageToCache, conversationId, getMessageContent, getMessageMeta, updateMessageInCache],
+    [
+      appendMessageToCache,
+      buildMetaJson,
+      conversationId,
+      getMessageContent,
+      updateMessageInCache,
+    ],
   )
 
   const compactMessageParts = useCallback((message: UIMessage) => {
@@ -886,6 +1026,127 @@ export function ChatView({
     ],
   )
 
+  const handleBranchFromAssistant = useCallback(
+    async (assistantMessageId: string) => {
+      const assistantIndex = chatMessages.findIndex(
+        (message: UIMessage) => message.id === assistantMessageId,
+      )
+      if (assistantIndex === -1) return
+
+      const assistantMessage = chatMessages[assistantIndex]
+      if (!assistantMessage || assistantMessage.role !== 'assistant') return
+
+      const sourceMessages = chatMessages.slice(0, assistantIndex + 1)
+      if (sourceMessages.length === 0) return
+
+      const now = new Date()
+      const branchConversationId = crypto.randomUUID()
+      const baseTitle = conversation?.title ?? 'New conversation'
+      const branchTitle = baseTitle
+      const baseTime =
+        now.getTime() - Math.max(sourceMessages.length - 1, 0) * 1000
+
+      const messageIdMap: Array<{
+        sourceMessageId: string
+        newMessageId: string
+      }> = []
+
+      let pivotNewMessageId: string | null = null
+      const newMessages = sourceMessages.map((message: UIMessage, index: number) => {
+        const newMessageId = crypto.randomUUID()
+        if (message.id === assistantMessageId) {
+          pivotNewMessageId = newMessageId
+        }
+        messageIdMap.push({
+          sourceMessageId: message.id,
+          newMessageId,
+        })
+
+        return {
+          id: newMessageId,
+          conversationId: branchConversationId,
+          role: message.role as 'user' | 'assistant' | 'system' | 'tool',
+          content: getMessageContent(message),
+          clientId: null,
+          metaJson: buildMetaJson(message),
+          createdAt: new Date(baseTime + index * 1000),
+        }
+      })
+
+      const lastMessageAt = newMessages[newMessages.length - 1]?.createdAt ?? now
+
+      const newConversation = {
+        id: branchConversationId,
+        title: branchTitle,
+        modelId: selectedModelId,
+        starred: false,
+        archived: false,
+        isPublic: false,
+        forkedFromConversationId: conversationId,
+        forkedFromMessageId: pivotNewMessageId ?? assistantMessageId,
+        forkedAt: now,
+        createdAt: now,
+        updatedAt: now,
+        lastMessageAt,
+      }
+
+      try {
+        updateConversationCache(queryClient, (current) => [
+          newConversation,
+          ...current.filter((conv) => conv.id !== branchConversationId),
+        ])
+        queryClient.setQueryData(
+          conversationKeys.detail(branchConversationId),
+          newConversation,
+        )
+        updateMessagesCache(queryClient, branchConversationId, () => newMessages)
+
+        await db.createConversation(newConversation)
+        for (const message of newMessages) {
+          await db.createMessage(message)
+        }
+
+        navigate({ to: '/chat/$id', params: { id: branchConversationId } })
+
+        fetch(`/api/conversations/${conversationId}/branch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assistantMessageId,
+            newConversationId: branchConversationId,
+            messageIdMap,
+          }),
+        })
+          .then((res) => {
+            if (!res.ok) {
+              console.error(
+                'Server branch failed:',
+                res.status,
+                res.statusText,
+              )
+            }
+          })
+          .catch((error) => {
+            console.error('Failed to persist branch to server:', error)
+          })
+      } catch (error) {
+        console.error('Failed to create branched conversation:', error)
+      }
+    },
+    [
+      buildMetaJson,
+      chatMessages,
+      conversation?.title,
+      conversationId,
+      getMessageContent,
+      navigate,
+      queryClient,
+      selectedModelId,
+      updateConversationCache,
+      updateMessagesCache,
+    ],
+  )
+
   // User messages are persisted manually in handleSubmit for reliability
   // This ensures they're saved before any re-renders or navigation
 
@@ -901,8 +1162,17 @@ export function ChatView({
     if (initialMessages.length === 0) return
     if (status === 'streaming' || status === 'submitted') return
     if (regeneratingMessageId) return
-    setMessages(initialMessages)
-  }, [initialMessages, regeneratingMessageId, setMessages, status])
+    const merged = mergeMessagesFromCache(chatMessages, initialMessages)
+    if (merged === chatMessages) return
+    setMessages(merged)
+  }, [
+    chatMessages,
+    initialMessages,
+    mergeMessagesFromCache,
+    regeneratingMessageId,
+    setMessages,
+    status,
+  ])
 
   // Handle pending message from /new route - send to AI and persist
   useEffect(() => {
@@ -1128,11 +1398,13 @@ export function ChatView({
           suggestionsLoading={suggestionsStatus === 'loading'}
           onSelectSuggestion={handleSuggestionSelect}
           onReload={handleRegenerate}
+          onBranchFromAssistant={handleBranchFromAssistant}
           onEditMessage={handleEditMessage}
           onShareMessage={handleShareMessage}
           onUnshareMessage={handleUnshareMessage}
           sharedMessageMap={sharedMessageMap}
           modelId={selectedModelId}
+          branchInfo={branchInfo}
           scrollToMessageId={resolvedScrollToMessageId}
         />
       )}
