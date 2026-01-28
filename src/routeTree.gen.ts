@@ -21,6 +21,7 @@ import { Route as ProjectIdRouteImport } from './routes/project.$id'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as ApiSuggestionsRouteImport } from './routes/api/suggestions'
 import { Route as ApiShareRouteImport } from './routes/api/share'
+import { Route as ApiLlmSettingsRouteImport } from './routes/api/llm-settings'
 import { Route as ApiGenerateTitleRouteImport } from './routes/api/generate-title'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiCacheVersionRouteImport } from './routes/api/cache-version'
@@ -95,6 +96,11 @@ const ApiSuggestionsRoute = ApiSuggestionsRouteImport.update({
 const ApiShareRoute = ApiShareRouteImport.update({
   id: '/api/share',
   path: '/api/share',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLlmSettingsRoute = ApiLlmSettingsRouteImport.update({
+  id: '/api/llm-settings',
+  path: '/api/llm-settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGenerateTitleRoute = ApiGenerateTitleRouteImport.update({
@@ -188,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/api/cache-version': typeof ApiCacheVersionRoute
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
+  '/api/llm-settings': typeof ApiLlmSettingsRoute
   '/api/share': typeof ApiShareRoute
   '/api/suggestions': typeof ApiSuggestionsRoute
   '/chat/$id': typeof ChatIdRoute
@@ -217,6 +224,7 @@ export interface FileRoutesByTo {
   '/api/cache-version': typeof ApiCacheVersionRoute
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
+  '/api/llm-settings': typeof ApiLlmSettingsRoute
   '/api/share': typeof ApiShareRoute
   '/api/suggestions': typeof ApiSuggestionsRoute
   '/chat/$id': typeof ChatIdRoute
@@ -247,6 +255,7 @@ export interface FileRoutesById {
   '/api/cache-version': typeof ApiCacheVersionRoute
   '/api/chat': typeof ApiChatRoute
   '/api/generate-title': typeof ApiGenerateTitleRoute
+  '/api/llm-settings': typeof ApiLlmSettingsRoute
   '/api/share': typeof ApiShareRoute
   '/api/suggestions': typeof ApiSuggestionsRoute
   '/chat/$id': typeof ChatIdRoute
@@ -278,6 +287,7 @@ export interface FileRouteTypes {
     | '/api/cache-version'
     | '/api/chat'
     | '/api/generate-title'
+    | '/api/llm-settings'
     | '/api/share'
     | '/api/suggestions'
     | '/chat/$id'
@@ -307,6 +317,7 @@ export interface FileRouteTypes {
     | '/api/cache-version'
     | '/api/chat'
     | '/api/generate-title'
+    | '/api/llm-settings'
     | '/api/share'
     | '/api/suggestions'
     | '/chat/$id'
@@ -336,6 +347,7 @@ export interface FileRouteTypes {
     | '/api/cache-version'
     | '/api/chat'
     | '/api/generate-title'
+    | '/api/llm-settings'
     | '/api/share'
     | '/api/suggestions'
     | '/chat/$id'
@@ -366,6 +378,7 @@ export interface RootRouteChildren {
   ApiCacheVersionRoute: typeof ApiCacheVersionRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiGenerateTitleRoute: typeof ApiGenerateTitleRoute
+  ApiLlmSettingsRoute: typeof ApiLlmSettingsRoute
   ApiShareRoute: typeof ApiShareRoute
   ApiSuggestionsRoute: typeof ApiSuggestionsRoute
   ChatIdRoute: typeof ChatIdRoute
@@ -464,6 +477,13 @@ declare module '@tanstack/react-router' {
       path: '/api/share'
       fullPath: '/api/share'
       preLoaderRoute: typeof ApiShareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/llm-settings': {
+      id: '/api/llm-settings'
+      path: '/api/llm-settings'
+      fullPath: '/api/llm-settings'
+      preLoaderRoute: typeof ApiLlmSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/generate-title': {
@@ -615,6 +635,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCacheVersionRoute: ApiCacheVersionRoute,
   ApiChatRoute: ApiChatRoute,
   ApiGenerateTitleRoute: ApiGenerateTitleRoute,
+  ApiLlmSettingsRoute: ApiLlmSettingsRoute,
   ApiShareRoute: ApiShareRoute,
   ApiSuggestionsRoute: ApiSuggestionsRoute,
   ChatIdRoute: ChatIdRoute,

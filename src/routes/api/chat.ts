@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { convertToModelMessages, streamText } from 'ai'
 import type { UIMessage } from 'ai'
 import { requireAuth } from '@/server/auth/get-session'
+import { getLlmSettings } from '@/server/llm-settings'
 
 type RegenerationPayload = {
   mode?: 'try-again' | 'expand' | 'concise' | 'instruction' | 'switch-model'
@@ -101,7 +102,12 @@ export const Route = createFileRoute('/api/chat')({
           regeneration?: RegenerationPayload
         } = await request.json()
 
-        const model = modelId ?? process.env.AI_MODEL ?? 'google/gemini-3-flash'
+        const settings = await getLlmSettings()
+        const model =
+          modelId ??
+          settings.modelId ??
+          process.env.AI_MODEL ??
+          'google/gemini-3-flash'
         console.log('model: ', model)
 
         const regenerationPrompt = buildRegenerationPrompt(
@@ -109,21 +115,65 @@ export const Route = createFileRoute('/api/chat')({
           messages,
           messageId,
         )
-        const chatMessages = regenerationPrompt
+        const systemMessages: UIMessage[] = []
+        const systemPrompt = settings.systemPrompt?.trim()
+        if (systemPrompt) {
+          systemMessages.push({
+            id: `system-${crypto.randomUUID()}`,
+            role: 'system',
+            parts: [{ type: 'text', text: systemPrompt }],
+          })
+        }
+        if (regenerationPrompt) {
+          systemMessages.push({
+            id: `system-${crypto.randomUUID()}`,
+            role: 'system',
+            parts: [{ type: 'text', text: regenerationPrompt }],
+          })
+        }
+        const chatMessages = systemMessages.length
           ? ([
-              {
-                id: `system-${crypto.randomUUID()}`,
-                role: 'system',
-                parts: [{ type: 'text', text: regenerationPrompt }],
-              } satisfies UIMessage,
+              ...systemMessages,
               ...messages,
             ] as Array<UIMessage>)
           : messages
         const modelMessages = chatMessages.map(({ id, ...rest }) => rest)
 
+        const timeoutMs =
+          settings.timeoutMs && settings.timeoutMs > 0
+            ? settings.timeoutMs
+            : undefined
+        const abortController = timeoutMs ? new AbortController() : undefined
+        const timeoutId = timeoutMs
+          ? setTimeout(() => abortController?.abort(), timeoutMs)
+          : null
+
         const result = streamText({
           model: gateway(model),
           messages: convertToModelMessages(modelMessages),
+          maxOutputTokens: settings.maxOutputTokens,
+          temperature: settings.temperature,
+          topP: settings.topP,
+          topK: settings.topK,
+          presencePenalty: settings.presencePenalty,
+          frequencyPenalty: settings.frequencyPenalty,
+          stopSequences:
+            settings.stopSequences && settings.stopSequences.length > 0
+              ? settings.stopSequences
+              : undefined,
+          seed: settings.seed,
+          maxRetries: settings.maxRetries,
+          abortSignal: abortController?.signal,
+          onError: () => {
+            if (timeoutId) {
+              clearTimeout(timeoutId)
+            }
+          },
+          onFinish: () => {
+            if (timeoutId) {
+              clearTimeout(timeoutId)
+            }
+          },
           providerOptions: {
             google: {
               thinkingConfig: {

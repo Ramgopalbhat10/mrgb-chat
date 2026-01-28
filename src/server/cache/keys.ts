@@ -6,6 +6,7 @@ export const CACHE_TTL = {
   MESSAGE_PREVIEW: 300, // 5 minutes - first message pair per conversation
   PROJECT_LIST: 300, // 5 minutes - projects with counts
   SHARED_ITEMS: 300, // 5 minutes - shared conversations and responses
+  LLM_SETTINGS: 0, // No TTL - user settings
   CACHE_VERSION: 0, // No TTL - version number for ETag validation
 } as const
 
@@ -65,6 +66,9 @@ export const cacheKeys = {
   
   // Shared items
   sharedItems: () => 'shared:items',
+
+  // LLM settings
+  llmSettings: () => 'llm:settings',
   
   // Cache version for ETag-like validation
   // Incremented on any data mutation to signal clients to refresh

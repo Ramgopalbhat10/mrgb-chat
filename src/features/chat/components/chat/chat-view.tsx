@@ -19,7 +19,7 @@ import {
   sharedItemsQueryOptions,
   sharedKeys,
 } from '@/features/chat/data/queries'
-import { useUpdateConversation } from '@/features/chat/data/mutations'
+import { llmSettingsQueryOptions } from '@/features/llm-settings/data/queries'
 import {
   updateConversationCache,
   updateMessagesCache,
@@ -69,15 +69,21 @@ export function ChatView({
   const pendingMessageIdRef = useRef<string | null>(null)
   const titleLoadingIds = useAppStore((state) => state.titleLoadingIds)
   const setPendingNewChat = useAppStore((state) => state.setPendingNewChat)
+  const conversationModelOverride = useAppStore(
+    (state) => state.conversationModelOverrides[conversationId],
+  )
+  const setConversationModelOverride = useAppStore(
+    (state) => state.setConversationModelOverride,
+  )
+  const clearConversationModelOverride = useAppStore(
+    (state) => state.clearConversationModelOverride,
+  )
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: conversations = [] } = useQuery(conversationsQueryOptions())
-  const updateConversation = useUpdateConversation()
-  const [inputModelId, setInputModelId] = useState<string | undefined>(
-    DEFAULT_MODEL_ID,
-  )
+  const { data: llmSettings } = useQuery(llmSettingsQueryOptions())
   const selectedModelIdRef = useRef<string | undefined>(undefined)
-  const hasUserSelectedModelRef = useRef(false)
+  const lastSettingsModelIdRef = useRef<string | undefined>(undefined)
   const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null)
   const jumpTargetRef = useRef<string | null>(null)
   const [suggestions, setSuggestions] = useState<string[] | null>(null)
@@ -160,11 +166,13 @@ export function ChatView({
     navigate({ to: '/new' })
   }
 
-  const handleModelChange = useCallback((modelId: string) => {
-    hasUserSelectedModelRef.current = true
-    selectedModelIdRef.current = modelId
-    setInputModelId(modelId)
-  }, [])
+  const handleModelChange = useCallback(
+    (modelId: string) => {
+      setConversationModelOverride(conversationId, modelId)
+      selectedModelIdRef.current = modelId
+    },
+    [conversationId, setConversationModelOverride],
+  )
 
   const handleJumpToMessage = useCallback((messageId: string) => {
     if (jumpTargetRef.current === messageId) {
@@ -192,37 +200,28 @@ export function ChatView({
 
   // Model metadata - moved up to be available for persistMessage
   const { data: models = [] } = useQuery(availableModelsQueryOptions())
-  useEffect(() => {
-    hasUserSelectedModelRef.current = false
-  }, [conversationId])
-
-  useEffect(() => {
-    if (hasUserSelectedModelRef.current) return
-    const nextModelId =
-      conversation?.modelId ?? inputModelId ?? DEFAULT_MODEL_ID
-    if (nextModelId && nextModelId !== inputModelId) {
-      setInputModelId(nextModelId)
-    }
-    if (nextModelId) {
-      selectedModelIdRef.current = nextModelId
-    }
-  }, [conversation?.modelId, conversationId, inputModelId])
-
-  useEffect(() => {
-    if (hasUserSelectedModelRef.current) return
-    if (!inputModelId && models[0]?.id) {
-      setInputModelId(models[0].id)
-      selectedModelIdRef.current = models[0].id
-    }
-  }, [inputModelId, models])
-
   const selectedModelId =
-    inputModelId ?? (conversation as any)?.modelId ?? models[0]?.id
+    conversationModelOverride ??
+    llmSettings?.modelId ??
+    models[0]?.id ??
+    DEFAULT_MODEL_ID
   useEffect(() => {
     if (selectedModelId) {
       selectedModelIdRef.current = selectedModelId
     }
   }, [selectedModelId])
+
+  useEffect(() => {
+    const settingsModelId = llmSettings?.modelId
+    if (!settingsModelId) return
+    if (
+      lastSettingsModelIdRef.current &&
+      lastSettingsModelIdRef.current !== settingsModelId
+    ) {
+      clearConversationModelOverride(conversationId)
+    }
+    lastSettingsModelIdRef.current = settingsModelId
+  }, [clearConversationModelOverride, conversationId, llmSettings?.modelId])
 
   useEffect(() => {
     jumpTargetRef.current = jumpToMessageId
@@ -1290,14 +1289,6 @@ export function ChatView({
           createdAt: new Date(),
         }
 
-        // Update conversation with selected modelId if not already set
-        if (conversation && resolvedModelId && !conversation.modelId) {
-          updateConversation.mutate({
-            id: conversationId,
-            updates: { modelId: resolvedModelId },
-          })
-        }
-
         persistedMessageIds.current.add(userMessageId)
         appendMessageToCache(userMessageData)
 
@@ -1315,7 +1306,7 @@ export function ChatView({
         }).catch(console.error)
       }, 100)
     },
-    [appendMessageToCache, conversation, conversationId, sendMessage, updateConversation],
+    [appendMessageToCache, conversationId, sendMessage],
   )
 
   const handleSubmit = async (e: React.FormEvent, modelId?: string) => {

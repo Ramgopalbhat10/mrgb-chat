@@ -1,12 +1,14 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useAppStore } from '@/stores/app-store'
 import { useCreateConversation } from '@/features/chat/data/mutations'
+import { llmSettingsQueryOptions } from '@/features/llm-settings/data/queries'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChatEmptyState, ChatInput } from '@/features/chat/components'
 import { useSidebar } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { SidebarLeftIcon } from '@hugeicons/core-free-icons'
+import { useQuery } from '@tanstack/react-query'
 
 export const Route = createFileRoute('/new')({
   component: NewChatPage,
@@ -30,7 +32,14 @@ function NewChatPage() {
     (state) => state.setActiveConversationId,
   )
   const setPendingNewChat = useAppStore((state) => state.setPendingNewChat)
+  const newChatModelId = useAppStore((state) => state.newChatModelId)
+  const setNewChatModelId = useAppStore((state) => state.setNewChatModelId)
+  const setConversationModelOverride = useAppStore(
+    (state) => state.setConversationModelOverride,
+  )
   const createConversation = useCreateConversation()
+  const { data: llmSettings } = useQuery(llmSettingsQueryOptions())
+  const lastSettingsModelIdRef = useRef<string | undefined>(undefined)
 
   // Sidebar toggle for mobile or when sidebar is collapsed
   const {
@@ -45,6 +54,18 @@ function NewChatPage() {
     setActiveConversationId(null)
   }, [setActiveConversationId])
 
+  useEffect(() => {
+    const settingsModelId = llmSettings?.modelId
+    if (!settingsModelId) return
+    if (
+      lastSettingsModelIdRef.current &&
+      lastSettingsModelIdRef.current !== settingsModelId
+    ) {
+      setNewChatModelId(null)
+    }
+    lastSettingsModelIdRef.current = settingsModelId
+  }, [llmSettings?.modelId, setNewChatModelId])
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
@@ -57,6 +78,9 @@ function NewChatPage() {
       const conversationId = crypto.randomUUID()
 
       try {
+        if (newChatModelId) {
+          setConversationModelOverride(conversationId, newChatModelId)
+        }
         await createConversation.mutateAsync({
           id: conversationId,
           title: 'New conversation',
@@ -88,11 +112,15 @@ function NewChatPage() {
       input,
       isSubmitting,
       createConversation,
+      newChatModelId,
+      setConversationModelOverride,
       setActiveConversationId,
       setPendingNewChat,
       navigate,
     ],
   )
+
+  const selectedModelId = newChatModelId ?? llmSettings?.modelId
 
   return (
     <div className="flex h-full flex-col relative">
@@ -120,6 +148,8 @@ function NewChatPage() {
         onInputChange={setInput}
         onSubmit={handleSubmit}
         isLoading={isSubmitting}
+        selectedModelId={selectedModelId}
+        onModelChange={setNewChatModelId}
       />
     </div>
   )

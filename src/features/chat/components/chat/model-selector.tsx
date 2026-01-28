@@ -179,9 +179,23 @@ function ModelSelectorComponent({
     })
   }, [models, search, selectedTags])
 
+  const fallbackSelectedModel = React.useMemo(() => {
+    if (!selectedModelId) return undefined
+    const provider = selectedModelId.split('/')[0] || 'other'
+    return {
+      id: selectedModelId,
+      name: selectedModelId,
+      owned_by: provider,
+      tags: [],
+    } as ModelMetadata
+  }, [selectedModelId])
+
   const selectedModel = React.useMemo(
-    () => models.find((m) => m.id === selectedModelId) || models[0],
-    [models, selectedModelId],
+    () =>
+      models.find((m) => m.id === selectedModelId) ||
+      fallbackSelectedModel ||
+      models[0],
+    [fallbackSelectedModel, models, selectedModelId],
   )
 
   const groupedModels = React.useMemo(() => {

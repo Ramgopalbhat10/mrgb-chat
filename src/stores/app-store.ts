@@ -12,6 +12,8 @@ interface AppState {
   pendingNewChat: PendingNewChat | null
   titleLoadingIds: Set<string>
   isHydrated: boolean
+  conversationModelOverrides: Record<string, string>
+  newChatModelId: string | null
 
   // UI actions
   setActiveConversationId: (id: string | null) => void
@@ -21,6 +23,12 @@ interface AppState {
   addTitleLoading: (conversationId: string) => void
   removeTitleLoading: (conversationId: string) => void
   setHydrated: (hydrated: boolean) => void
+  setConversationModelOverride: (
+    conversationId: string,
+    modelId: string,
+  ) => void
+  clearConversationModelOverride: (conversationId: string) => void
+  setNewChatModelId: (modelId: string | null) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -29,6 +37,8 @@ export const useAppStore = create<AppState>()(
     pendingNewChat: null,
     titleLoadingIds: new Set<string>(),
     isHydrated: false,
+    conversationModelOverrides: {},
+    newChatModelId: null,
 
     setActiveConversationId: (id) => {
       set({ activeConversationId: id })
@@ -66,6 +76,30 @@ export const useAppStore = create<AppState>()(
 
     setHydrated: (hydrated) => {
       set({ isHydrated: hydrated })
+    },
+
+    setConversationModelOverride: (conversationId, modelId) => {
+      set((state) => ({
+        conversationModelOverrides: {
+          ...state.conversationModelOverrides,
+          [conversationId]: modelId,
+        },
+      }))
+    },
+
+    clearConversationModelOverride: (conversationId) => {
+      set((state) => {
+        if (!state.conversationModelOverrides[conversationId]) {
+          return state
+        }
+        const next = { ...state.conversationModelOverrides }
+        delete next[conversationId]
+        return { conversationModelOverrides: next }
+      })
+    },
+
+    setNewChatModelId: (modelId) => {
+      set({ newChatModelId: modelId })
     },
   })),
 )

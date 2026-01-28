@@ -114,3 +114,30 @@
 - Added a dedicated branch endpoint that validates the pivot assistant message and copies messages into a new conversation in a single transaction: `src/routes/api/conversations/$id.branch.ts`.
 - Added forked-from metadata fields on conversations to track branch lineage in storage and caches: `src/server/db/schema.ts`, `src/server/db/migrations/0006_add_conversation_branching.sql`, `src/routes/api/conversations/index.ts`, `src/lib/indexeddb.ts`.
 - Ensured branched message copies preserve deterministic ordering by spacing createdAt timestamps by 1s and storing the copied pivot message id for anchoring: `src/features/chat/components/chat/chat-view.tsx`, `src/routes/api/conversations/$id.branch.ts`.
+
+## Goal 09
+- Add an LLM settings panel launched from the sidebar footer settings icon.
+- Align available settings with the Vercel AI SDK docs and store settings in Redis.
+
+## Goal 09 Plan
+- Review the Vercel AI SDK docs for supported generation settings (temperature, topP, topK, maxTokens, penalties, stop, etc.) once the doc link is confirmed.
+- Define a settings schema/defaults that matches the supported options and decide which are “basic” vs “advanced” controls.
+- Add a settings panel UI (model selector, sliders, numeric inputs, system prompt textarea, advanced toggle) matching the provided layout.
+- Wire the sidebar settings icon to open/close the panel and persist updates in Redis via a new API route.
+- Connect chat requests to read the active settings from Redis so new generations use the saved configuration.
+
+## Goal 09 Changes
+
+### LLM settings UI
+- Added a settings sheet launched from the sidebar footer, with a model selector, basic sliders/inputs, system prompt, and advanced controls: `src/components/app-sidebar.tsx`, `src/features/llm-settings/components/llm-settings-panel.tsx`.
+- Installed the slider component for sampling controls: `src/components/ui/slider.tsx`.
+
+### Settings persistence + server usage
+- Added Redis-backed LLM settings storage helpers and API route for GET/PATCH: `src/server/llm-settings.ts`, `src/routes/api/llm-settings.ts`, `src/server/cache/keys.ts`.
+- Created client query/mutation hooks for settings with optimistic updates: `src/features/llm-settings/data/queries.ts`, `src/features/llm-settings/data/mutations.ts`.
+- Applied stored settings (including system prompt and sampling params) to streaming chat requests, with settings model fallback: `src/routes/api/chat.ts`, `src/features/chat/components/chat/chat-view.tsx`.
+
+### Settings sync + UX fixes
+- Fixed settings dirty-state handling so Save enables on any change and only resets after a successful save: `src/features/llm-settings/components/llm-settings-panel.tsx`.
+- Decoupled chat input model selection from global settings while keeping settings as the default on load, using session-only overrides: `src/stores/app-store.ts`, `src/features/chat/components/chat/chat-view.tsx`, `src/routes/new.tsx`.
+- Ensured settings model changes immediately override any per-chat selection and the model selector can display a saved model even if it is not in the current model list: `src/features/chat/components/chat/chat-view.tsx`, `src/features/chat/components/chat/model-selector.tsx`.

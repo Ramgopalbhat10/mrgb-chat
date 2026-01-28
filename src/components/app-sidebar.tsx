@@ -13,6 +13,13 @@ import {
   SidebarMenuButton,
   SidebarTrigger,
 } from './ui/sidebar'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from './ui/dialog'
 import { Button } from './ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -34,6 +41,7 @@ import { useAuth } from '@/providers/auth-provider'
 import { ConversationActionsDropdown } from '@/features/chat/components'
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
 import { useSidebar } from './ui/sidebar'
+import { LlmSettingsPanel } from '@/features/llm-settings/components/llm-settings-panel'
 
 interface AppSidebarProps {
   conversations: Conversation[]
@@ -321,13 +329,32 @@ export function AppSidebar({
             </span>
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-muted-foreground/70 hover:text-foreground hover:bg-sidebar-accent border-0"
-            >
-              <HugeiconsIcon icon={Settings01Icon} size={16} strokeWidth={2} />
-            </Button>
+            <Dialog>
+              <DialogTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground/70 hover:text-foreground hover:bg-sidebar-accent border-0"
+                  >
+                    <HugeiconsIcon
+                      icon={Settings01Icon}
+                      size={16}
+                      strokeWidth={2}
+                    />
+                  </Button>
+                }
+              />
+              <DialogContent
+                className="h-[86vh] w-[720px] max-w-[94vw] overflow-hidden p-0 sm:h-[78vh]"
+                showCloseButton
+              >
+                <DialogHeader className="sr-only">
+                  <DialogTitle>LLM Settings</DialogTitle>
+                </DialogHeader>
+                <LlmSettingsPanel />
+              </DialogContent>
+            </Dialog>
             <Button
               variant="ghost"
               size="icon"
