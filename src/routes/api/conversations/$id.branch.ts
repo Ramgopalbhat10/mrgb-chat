@@ -4,9 +4,9 @@ import { asc, eq } from 'drizzle-orm'
 import { db } from '@/server/db'
 import { conversations, messages } from '@/server/db/schema'
 import {
+  incrementCacheVersion,
   invalidateOnConversationCreate,
   invalidateOnNewMessage,
-  incrementCacheVersion,
 } from '@/server/cache'
 import { requireAuth } from '@/server/auth/get-session'
 

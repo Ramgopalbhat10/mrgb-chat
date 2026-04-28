@@ -115,7 +115,7 @@ export const Route = createFileRoute('/api/chat')({
           messages,
           messageId,
         )
-        const systemMessages: UIMessage[] = []
+        const systemMessages: Array<UIMessage> = []
         const systemPrompt = settings.systemPrompt?.trim()
         if (systemPrompt) {
           systemMessages.push({

@@ -6,7 +6,7 @@ export type LlmSettings = {
   topK?: number
   presencePenalty?: number
   frequencyPenalty?: number
-  stopSequences?: string[]
+  stopSequences?: Array<string>
   seed?: number
   maxRetries?: number
   timeoutMs?: number

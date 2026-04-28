@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { eq, and, asc } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 
 import { db } from '@/server/db'
 import { conversations, messages } from '@/server/db/schema'

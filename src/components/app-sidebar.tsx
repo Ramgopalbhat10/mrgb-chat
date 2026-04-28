@@ -1,17 +1,29 @@
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useLocation, useNavigate  } from '@tanstack/react-router'
 import { useMemo } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  Add01Icon,
+  Folder01Icon,
+  GitBranchIcon,
+  Logout01Icon,
+  MessageMultiple01Icon,
+  Search01Icon,
+  Settings01Icon,
+  Share01Icon,
+  StarIcon,
+} from '@hugeicons/core-free-icons'
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeader,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
-  SidebarMenuItem,
   SidebarMenuButton,
-  SidebarTrigger,
+  SidebarMenuItem,
+  SidebarTrigger, useSidebar 
 } from './ui/sidebar'
 import {
   Dialog,
@@ -21,30 +33,16 @@ import {
   DialogTrigger,
 } from './ui/dialog'
 import { Button } from './ui/button'
-import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  Add01Icon,
-  Settings01Icon,
-  Search01Icon,
-  Folder01Icon,
-  MessageMultiple01Icon,
-  Logout01Icon,
-  StarIcon,
-  Share01Icon,
-  GitBranchIcon,
-} from '@hugeicons/core-free-icons'
 import { Input } from './ui/input'
-import { Link, useLocation } from '@tanstack/react-router'
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import type { Conversation } from '@/lib/indexeddb'
 import { useAppStore } from '@/stores/app-store'
 import { useAuth } from '@/providers/auth-provider'
 import { ConversationActionsDropdown } from '@/features/chat/components'
-import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
-import { useSidebar } from './ui/sidebar'
 import { LlmSettingsPanel } from '@/features/llm-settings/components/llm-settings-panel'
 
 interface AppSidebarProps {
-  conversations: Conversation[]
+  conversations: Array<Conversation>
   activeConversationId: string
   onNewChat: () => void
   onSelectConversation: (id: string) => void

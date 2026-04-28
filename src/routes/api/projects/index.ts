@@ -1,15 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { desc, eq, sql } from 'drizzle-orm'
 
+import type {CachedProject} from '@/server/cache';
 import { db } from '@/server/db'
-import { projects, conversationProjects } from '@/server/db/schema'
+import { conversationProjects, projects } from '@/server/db/schema'
 import { getSession } from '@/server/auth/get-session'
 import { 
+   
   getCachedProjects, 
-  setCachedProjects, 
-  invalidateOnProjectChange,
   incrementCacheVersion,
-  type CachedProject,
+  invalidateOnProjectChange,
+  setCachedProjects
 } from '@/server/cache'
 
 export const Route = createFileRoute('/api/projects/')({
@@ -45,7 +46,7 @@ export const Route = createFileRoute('/api/projects/')({
             .orderBy(desc(projects.updatedAt))
 
           // Transform for cache (dates to ISO strings)
-          const cacheData: CachedProject[] = result.map((p) => ({
+          const cacheData: Array<CachedProject> = result.map((p) => ({
             id: p.id,
             name: p.name,
             createdAt: p.createdAt.toISOString(),

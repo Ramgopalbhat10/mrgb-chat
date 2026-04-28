@@ -3,7 +3,7 @@ import { ArrowTurnDownIcon } from '@hugeicons/core-free-icons'
 import { Skeleton } from '@/components/ui/skeleton'
 
 interface ChatSuggestionsProps {
-  suggestions: string[]
+  suggestions: Array<string>
   onSelect?: (suggestion: string) => void
 }
 

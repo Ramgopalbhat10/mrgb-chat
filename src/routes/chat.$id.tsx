@@ -1,12 +1,12 @@
-import { ChatView, ChatSkeleton } from '@/features/chat/components'
 import { createFileRoute } from '@tanstack/react-router'
-import { useAppStore } from '@/stores/app-store'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import type { UIMessage } from 'ai'
+import { ChatSkeleton, ChatView } from '@/features/chat/components'
+import { useAppStore } from '@/stores/app-store'
 import { conversationKeys, messagesQueryOptions } from '@/features/chat/data/queries'
 import { hydrateMessagesCache } from '@/features/chat/data/persistence'
 import { useGenerateTitle } from '@/features/chat/data/mutations'
-import type { UIMessage } from 'ai'
 
 export const Route = createFileRoute('/chat/$id')({
   component: ChatPage,
@@ -79,7 +79,7 @@ function ChatPage() {
     messagesQueryOptions(id),
   )
 
-  const initialMessages = useMemo<UIMessage[]>(() => {
+  const initialMessages = useMemo<Array<UIMessage>>(() => {
     return messages.map((msg) => {
       let metadata: any = undefined
       let reasoningParts: Array<{ type: 'reasoning'; text: string; state: 'done' }> = []

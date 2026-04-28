@@ -1,4 +1,10 @@
 import { useMemo } from 'react'
+import { Streamdown } from 'streamdown'
+import {
+  getReasoningParts,
+  getReasoningText,
+} from '../utils'
+import type { UIMessage } from 'ai'
 import {
   Sheet,
   SheetContent,
@@ -7,13 +13,7 @@ import {
 } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Streamdown } from 'streamdown'
-import type { UIMessage } from 'ai'
 import { cn } from '@/lib/utils'
-import {
-  getReasoningParts,
-  getReasoningText,
-} from '../utils'
 
 interface ReasoningTraceSheetProps {
   open: boolean
@@ -36,8 +36,8 @@ export function ReasoningTraceSheet({
   )
   const reasoningBlocks = useMemo(() => {
     const lines = reasoningText.split('\n')
-    const blocks: string[] = []
-    let currentBlock: string[] = []
+    const blocks: Array<string> = []
+    let currentBlock: Array<string> = []
 
     for (const line of lines) {
       const trimmedLine = line.trim()

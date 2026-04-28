@@ -2,9 +2,9 @@ import { createFileRoute } from '@tanstack/react-router'
 import { desc, sql } from 'drizzle-orm'
 
 import { db } from '@/server/db'
-import { projects, conversationProjects } from '@/server/db/schema'
+import { conversationProjects, projects } from '@/server/db/schema'
 import { getSession } from '@/server/auth/get-session'
-import { redis, cacheKeys, CACHE_TTL } from '@/server/cache'
+import { CACHE_TTL, cacheKeys, redis } from '@/server/cache'
 
 interface ProjectMetadata {
   projects: Array<{
@@ -14,7 +14,7 @@ interface ProjectMetadata {
     updatedAt: Date
     conversationCount: number
   }>
-  conversationProjects: Record<string, string[]> // conversationId -> projectIds[]
+  conversationProjects: Record<string, Array<string>> // conversationId -> projectIds[]
 }
 
 export const Route = createFileRoute('/api/projects/metadata')({
@@ -60,7 +60,7 @@ export const Route = createFileRoute('/api/projects/metadata')({
             .from(conversationProjects)
 
           // Build the conversationProjects map
-          const convProjectsMap: Record<string, string[]> = {}
+          const convProjectsMap: Record<string, Array<string>> = {}
           allMappings.forEach(({ conversationId, projectId }) => {
             if (!convProjectsMap[conversationId]) {
               convProjectsMap[conversationId] = []

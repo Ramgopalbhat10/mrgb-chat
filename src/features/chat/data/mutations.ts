@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Conversation, Message } from '@/lib/indexeddb'
-import * as db from '@/lib/indexeddb'
 import { conversationKeys } from './queries'
 import {
   updateConversationCache,
   updateMessagesCache,
 } from './persistence'
+import type { Conversation, Message } from '@/lib/indexeddb'
+import * as db from '@/lib/indexeddb'
 import { useAppStore } from '@/stores/app-store'
 
 // Optimistic update helpers
@@ -63,7 +63,7 @@ export function useCreateConversation() {
     onMutate: async (newConversation) => {
       await queryClient.cancelQueries({ queryKey: conversationKeys.all })
 
-      const previousConversations = queryClient.getQueryData<Conversation[]>(
+      const previousConversations = queryClient.getQueryData<Array<Conversation>>(
         conversationKeys.list(),
       )
 
@@ -143,7 +143,7 @@ export function useUpdateConversation() {
     onMutate: async ({ id, updates }) => {
       await queryClient.cancelQueries({ queryKey: conversationKeys.all })
 
-      const previousConversations = queryClient.getQueryData<Conversation[]>(
+      const previousConversations = queryClient.getQueryData<Array<Conversation>>(
         conversationKeys.list(),
       )
       const previousConversation = previousConversations?.find(
@@ -180,7 +180,7 @@ export function useUpdateConversation() {
       if (!data || !('id' in data)) return
 
       const existing = queryClient
-        .getQueryData<Conversation[]>(conversationKeys.list())
+        .getQueryData<Array<Conversation>>(conversationKeys.list())
         ?.find((conv) => conv.id === variables.id)
       const normalized = normalizeServerConversation(data, existing?.modelId)
 
@@ -211,7 +211,7 @@ export function useDeleteConversation() {
     onMutate: async (deletedId) => {
       await queryClient.cancelQueries({ queryKey: conversationKeys.all })
 
-      const previousConversations = queryClient.getQueryData<Conversation[]>(
+      const previousConversations = queryClient.getQueryData<Array<Conversation>>(
         conversationKeys.list(),
       )
 

@@ -1,14 +1,14 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useAppStore } from '@/stores/app-store'
-import { useCreateConversation } from '@/features/chat/data/mutations'
-import { llmSettingsQueryOptions } from '@/features/llm-settings/data/queries'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChatEmptyState, ChatInput } from '@/features/chat/components'
-import { useSidebar } from '@/components/ui/sidebar'
-import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { SidebarLeftIcon } from '@hugeicons/core-free-icons'
 import { useQuery } from '@tanstack/react-query'
+import { useAppStore } from '@/stores/app-store'
+import { useCreateConversation } from '@/features/chat/data/mutations'
+import { llmSettingsQueryOptions } from '@/features/llm-settings/data/queries'
+import { ChatEmptyState, ChatInput } from '@/features/chat/components'
+import { useSidebar } from '@/components/ui/sidebar'
+import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/new')({
   component: NewChatPage,

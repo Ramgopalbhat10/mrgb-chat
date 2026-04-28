@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { GithubIcon } from '@hugeicons/core-free-icons'
+import { Button } from '@/components/ui/button'
 import { authClient } from '@/lib/auth-client'
 
 type LoginSearch = {

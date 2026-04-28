@@ -2,11 +2,11 @@ import { createFileRoute } from '@tanstack/react-router'
 import { eq, sql } from 'drizzle-orm'
 
 import { db } from '@/server/db'
-import { conversations, messages, sharedMessages, conversationProjects } from '@/server/db/schema'
+import { conversationProjects, conversations, messages, sharedMessages } from '@/server/db/schema'
 import {
-  invalidateOnConversationUpdate,
-  invalidateOnConversationDelete,
   incrementCacheVersion,
+  invalidateOnConversationDelete,
+  invalidateOnConversationUpdate,
 } from '@/server/cache'
 import { requireAuth } from '@/server/auth/get-session'
 

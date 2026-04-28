@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Message01Icon, UserIcon, AiBrain01Icon } from '@hugeicons/core-free-icons'
+import { AiBrain01Icon, Message01Icon, UserIcon } from '@hugeicons/core-free-icons'
 import { Streamdown } from 'streamdown'
-import { CollapsibleCodeBlocks } from '@/components/collapsible-code-blocks'
 import { code } from '@streamdown/code'
+import { CollapsibleCodeBlocks } from '@/components/collapsible-code-blocks'
 
 interface SharedMessage {
   id: string
@@ -21,7 +21,7 @@ interface SharedConversation {
 
 interface ShareData {
   conversation: SharedConversation
-  messages: SharedMessage[]
+  messages: Array<SharedMessage>
 }
 
 export const Route = createFileRoute('/share/$id')({

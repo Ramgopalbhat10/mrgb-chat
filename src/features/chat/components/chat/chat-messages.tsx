@@ -1,10 +1,10 @@
-import type { UIMessage } from 'ai'
-import { cn } from '@/lib/utils'
 import { Streamdown } from 'streamdown'
 import { getMessageText } from '../messages'
+import type { UIMessage } from 'ai'
+import { cn } from '@/lib/utils'
 
 interface ChatMessagesProps {
-  messages: UIMessage[]
+  messages: Array<UIMessage>
   isLoading?: boolean
 }
 

@@ -1,8 +1,52 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  availableModelsQueryOptions,
-  ModelMetadata,
+  AiBrain01Icon,
+  ArrowDown01Icon,
+  BrainIcon,
+  CoinsIcon,
+  FilterIcon,
+} from '@hugeicons/core-free-icons'
+import {
+  Alibaba,
+  Anthropic,
+  Arcee,
+  Aws,
+  Azure,
+  Bfl,
+  ByteDance,
+  Cohere,
+  DeepSeek,
+  Fireworks,
+  Gemini,
+  Google,
+  Grok,
+  Groq,
+  Inception,
+  Kwaipilot,
+  LongCat,
+  Meta,
+  Minimax,
+  Mistral,
+  Moonshot,
+  Morph,
+  Nvidia,
+  OpenAI,
+  Perplexity,
+  Qwen,
+  Recraft,
+  Together,
+  Vercel,
+  Voyage,
+  XAI,
+  XiaomiMiMo,
+  ZAI,
+} from '@lobehub/icons/es/icons'
+import type {
+  ModelMetadata} from '@/features/chat/data/queries';
+import {
+  availableModelsQueryOptions
 } from '@/features/chat/data/queries'
 import {
   DropdownMenu,
@@ -23,49 +67,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  ArrowDown01Icon,
-  CoinsIcon,
-  BrainIcon,
-  AiBrain01Icon,
-  FilterIcon,
-} from '@hugeicons/core-free-icons'
-import {
-  OpenAI,
-  Anthropic,
-  Google,
-  Meta,
-  Mistral,
-  DeepSeek,
-  Cohere,
-  Perplexity,
-  Aws,
-  Azure,
-  Groq,
-  Together,
-  Fireworks,
-  Alibaba,
-  Gemini,
-  Qwen,
-  Nvidia,
-  Voyage,
-  Arcee,
-  Bfl,
-  ByteDance,
-  Minimax,
-  Moonshot,
-  Inception,
-  Kwaipilot,
-  LongCat,
-  Morph,
-  Recraft,
-  Vercel,
-  XAI,
-  ZAI,
-  XiaomiMiMo,
-  Grok,
-} from '@lobehub/icons/es/icons'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 
@@ -228,7 +229,7 @@ function ModelSelectorComponent({
         acc[providerKey].push(model)
         return acc
       },
-      {} as Record<string, ModelMetadata[]>,
+      {} as Record<string, Array<ModelMetadata>>,
     )
   }, [filteredModels])
 

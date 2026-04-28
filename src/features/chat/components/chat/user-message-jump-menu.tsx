@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
-import type { UIMessage } from 'ai'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
+import { getMessageText } from '../messages'
+import type { UIMessage } from 'ai'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -13,10 +14,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { getMessageText } from '../messages'
 
 interface UserMessageJumpMenuProps {
-  messages: UIMessage[]
+  messages: Array<UIMessage>
   onSelectMessage: (messageId: string) => void
 }
 

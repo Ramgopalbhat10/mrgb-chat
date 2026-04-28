@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 
 const MIN_HEIGHT_TO_COLLAPSE = 250 // only collapse if taller than this

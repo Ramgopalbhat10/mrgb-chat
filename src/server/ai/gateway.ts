@@ -22,7 +22,7 @@ export const getAvailableModels = createServerFn({ method: 'GET' }).handler(
 
       const data = await response.json()
       // The API returns a list under the 'data' property based on typical OpenAI-compatible responses
-      return (data.data || data.models || []) as any
+      return (data.data || data.models || [])
     } catch (error) {
       console.error('Failed to fetch available models from AI Gateway:', error)
       throw new Error('Failed to fetch models')

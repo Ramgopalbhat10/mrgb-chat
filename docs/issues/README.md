@@ -10,3 +10,4 @@ Issue template: `docs/issues/template.md`
 | 2 | Scroll-to-bottom Indicator Stuck After Regeneration | resolved | None | `src/features/chat/components/chat/chat-messages-virtual.tsx` |
 | 3 | Scroll Position Lost After Streaming Completes | resolved | None | `src/features/chat/components/chat/chat-messages-virtual.tsx` |
 | 4 | Port Label-Driven Agentic Workflow Infrastructure From notes | resolved | None | `AGENTS.md`, `docs/*`, `.agents/*`, `.windsurf/*`, `.githooks/*`, `scripts/workflow/*`, `package.json`, `README.md` |
+| 6 | Establish ESLint Baseline (autofix + targeted rule overrides) | resolved | None | `eslint.config.js`, `src/**` (autofix sweep) |

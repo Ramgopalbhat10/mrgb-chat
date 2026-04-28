@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { eq, and } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
 import { db } from '@/server/db'
 import { conversationProjects, projects } from '@/server/db/schema'
 import { getSession } from '@/server/auth/get-session'
-import { invalidateOnProjectChange, incrementCacheVersion } from '@/server/cache'
+import { incrementCacheVersion, invalidateOnProjectChange } from '@/server/cache'
 
 export const Route = createFileRoute('/api/projects/$id/conversations')({
   server: {

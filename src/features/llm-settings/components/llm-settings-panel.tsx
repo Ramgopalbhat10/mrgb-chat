@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import {  useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Settings01Icon, ArrowDown01Icon } from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon, Settings01Icon } from '@hugeicons/core-free-icons'
+import type {ChangeEvent} from 'react';
+import type {LlmSettings} from '@/lib/llm-settings';
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -18,7 +20,7 @@ import {
   llmSettingsQueryOptions,
 } from '@/features/llm-settings/data/queries'
 import { useUpdateLlmSettings } from '@/features/llm-settings/data/mutations'
-import { DEFAULT_LLM_SETTINGS, type LlmSettings } from '@/lib/llm-settings'
+import { DEFAULT_LLM_SETTINGS  } from '@/lib/llm-settings'
 import { cn } from '@/lib/utils'
 
 const temperatureLabel = (value: number) => {
@@ -31,7 +33,7 @@ const temperatureLabel = (value: number) => {
 const formatNumber = (value: number, digits = 2) =>
   Number.isFinite(value) ? value.toFixed(digits) : '—'
 
-const toSingleValue = (value: number | readonly number[]) =>
+const toSingleValue = (value: number | ReadonlyArray<number>) =>
   Array.isArray(value) ? value[0] : value
 
 const toNumberInput = (value: number | undefined) =>
