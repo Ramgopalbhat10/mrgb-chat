@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChatHeader } from '@/features/chat/components'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  Folder01Icon,
   Add01Icon,
   Delete01Icon,
+  Folder01Icon,
   MoreHorizontalIcon,
 } from '@hugeicons/core-free-icons'
+import type {Project} from '@/features/chat/data/queries';
+import { ChatHeader } from '@/features/chat/components'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -35,7 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { projectKeys, projectsMetadataQueryOptions, type Project } from '@/features/chat/data/queries'
+import {  projectKeys, projectsMetadataQueryOptions } from '@/features/chat/data/queries'
 
 export const Route = createFileRoute('/projects')({
   component: ProjectsPage,

@@ -1,17 +1,21 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
-import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { SidebarLeftIcon } from '@hugeicons/core-free-icons'
 import { ChatMessagesVirtual } from './chat-messages-virtual'
 import { ChatInput } from './chat-input'
 import { ChatHeader } from './chat-header'
 import { ChatEmptyState } from './chat-empty-state'
+import type { Message as PersistedMessage } from '@/lib/indexeddb'
+import type { UIMessage } from 'ai'
+import type { ModelMetadata } from '@/features/chat/data/queries'
+import type { RegenerationOptions } from '@/features/chat/types/regeneration'
 import { useAppStore } from '@/stores/app-store'
 import { useSidebar } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { SidebarLeftIcon } from '@hugeicons/core-free-icons'
 import {
   availableModelsQueryOptions,
   conversationKeys,
@@ -25,14 +29,10 @@ import {
   updateMessagesCache,
 } from '@/features/chat/data/persistence'
 import * as db from '@/lib/indexeddb'
-import type { Message as PersistedMessage } from '@/lib/indexeddb'
-import type { UIMessage } from 'ai'
-import type { ModelMetadata } from '@/features/chat/data/queries'
-import type { RegenerationOptions } from '@/features/chat/types/regeneration'
 
 interface ChatViewProps {
   conversationId: string
-  initialMessages?: UIMessage[]
+  initialMessages?: Array<UIMessage>
   pendingMessage?: string | null // Initial message from /new to send to AI
   scrollToMessageId?: string // Message ID to scroll to (from shared items navigation)
 }
@@ -86,7 +86,7 @@ export function ChatView({
   const lastSettingsModelIdRef = useRef<string | undefined>(undefined)
   const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null)
   const jumpTargetRef = useRef<string | null>(null)
-  const [suggestions, setSuggestions] = useState<string[] | null>(null)
+  const [suggestions, setSuggestions] = useState<Array<string> | null>(null)
   const [suggestionsStatus, setSuggestionsStatus] = useState<
     'idle' | 'loading' | 'ready' | 'error'
   >('idle')
@@ -367,7 +367,7 @@ export function ChatView({
   )
 
   const mergeMessagesFromCache = useCallback(
-    (current: UIMessage[], cached: UIMessage[]) => {
+    (current: Array<UIMessage>, cached: Array<UIMessage>) => {
       if (cached.length === 0) return current
       if (current.length === 0) return cached
 
@@ -432,7 +432,7 @@ export function ChatView({
   }, [])
 
   const getSuggestionContext = useCallback(
-    (messages: UIMessage[], assistantId?: string) => {
+    (messages: Array<UIMessage>, assistantId?: string) => {
       if (messages.length === 0) return null
       if (!assistantId && messages[messages.length - 1]?.role !== 'assistant') {
         return null
@@ -715,7 +715,7 @@ export function ChatView({
     onFinish: async ({ message, messages, isAbort, isError }) => {
       // Persist assistant message when streaming completes
       await persistMessage(message)
-      setMessages((current: UIMessage[]) =>
+      setMessages((current: Array<UIMessage>) =>
         current.map((msg) =>
           msg.id === message.id ? compactMessageParts(msg) : msg,
         ),
@@ -861,9 +861,9 @@ export function ChatView({
       )
       if (assistantIndex === -1) return
 
-      const tailMessages: UIMessage[] = chatMessages.slice(assistantIndex + 1)
+      const tailMessages: Array<UIMessage> = chatMessages.slice(assistantIndex + 1)
       if (tailMessages.length > 0) {
-        setMessages((current: UIMessage[]) => {
+        setMessages((current: Array<UIMessage>) => {
           const index = current.findIndex((m) => m.id === assistantMessageId)
           if (index === -1) return current
           return current.slice(0, index + 1)
@@ -979,7 +979,7 @@ export function ChatView({
       if (userIndex === -1) return
 
       // Update the user message content in state
-      setMessages((current: UIMessage[]) => {
+      setMessages((current: Array<UIMessage>) => {
         const newMessages = [...current]
         const index = newMessages.findIndex((m) => m.id === userMessageId)
         if (index !== -1) {
@@ -1183,7 +1183,7 @@ export function ChatView({
 
       // Send message to AI
       const userMessage = createUserMessage(userMessageId, pendingMessage)
-      setMessages((current: UIMessage[]) => {
+      setMessages((current: Array<UIMessage>) => {
         if (current.some((message) => message.id === userMessageId)) {
           return current
         }
@@ -1263,7 +1263,7 @@ export function ChatView({
 
       // Send message to AI - useChat will handle adding the message and streaming
       const userMessage = createUserMessage(userMessageId, trimmed)
-      setMessages((current: UIMessage[]) => {
+      setMessages((current: Array<UIMessage>) => {
         if (current.some((message) => message.id === userMessageId)) {
           return current
         }

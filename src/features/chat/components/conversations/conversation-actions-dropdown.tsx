@@ -1,5 +1,20 @@
-import { useState, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  Add01Icon,
+  Cancel01Icon,
+  Delete01Icon,
+  Download01Icon,
+  Folder01Icon,
+  FolderAddIcon,
+  MoreHorizontalIcon,
+  PencilEdit01Icon,
+  StarIcon,
+  StarOffIcon,
+} from '@hugeicons/core-free-icons'
+import { projectKeys, projectsQueryOptions, sharedKeys } from '../../data/queries'
+import type { Conversation } from '@/lib/indexeddb'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,21 +43,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  MoreHorizontalIcon,
-  PencilEdit01Icon,
-  StarIcon,
-  FolderAddIcon,
-  Delete01Icon,
-  StarOffIcon,
-  Add01Icon,
-  Folder01Icon,
-  Cancel01Icon,
-  Download01Icon,
-} from '@hugeicons/core-free-icons'
-import type { Conversation } from '@/lib/indexeddb'
-import { projectKeys, projectsQueryOptions, sharedKeys } from '../../data/queries'
 import { useDeleteConversation, useUpdateConversation } from '@/features/chat/data/mutations'
 
 interface Project {
@@ -99,7 +99,7 @@ export function ConversationActionsDropdown({
     queryFn: async () => {
       const res = await fetch(`/api/conversations/${conversation.id}/projects`)
       if (!res.ok) throw new Error('Failed to fetch conversation projects')
-      return res.json() as Promise<string[]>
+      return res.json() as Promise<Array<string>>
     },
     enabled: isAddToProjectOpen,
   })

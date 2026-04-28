@@ -1,27 +1,28 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type { VirtualItem, Virtualizer } from '@tanstack/virtual-core'
-import type { UIMessage } from 'ai'
-import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
-import type { RegenerationOptions } from '@/features/chat/types/regeneration'
-import { ChatSuggestions, ChatSuggestionsSkeleton } from './chat-suggestions'
 import {
   ChatMessageRow,
-  ShareResponseDialog,
+  
   ReasoningTraceSheet,
+  
+  ShareResponseDialog,
   getMessageText,
-  getReasoningParts,
-  type ShareDialogMessage,
-  type ReasoningSession,
+  getReasoningParts
 } from '../messages'
+import { ChatSuggestions, ChatSuggestionsSkeleton } from './chat-suggestions'
+import type { VirtualItem, Virtualizer } from '@tanstack/virtual-core'
+import type { UIMessage } from 'ai'
+import type { RegenerationOptions } from '@/features/chat/types/regeneration'
+import type {ReasoningSession, ShareDialogMessage} from '../messages';
+import { Button } from '@/components/ui/button'
 
 interface ChatMessagesVirtualProps {
-  messages: UIMessage[]
+  messages: Array<UIMessage>
   isLoading?: boolean
   regeneratingMessageId?: string | null // ID of message being regenerated
-  suggestions?: string[]
+  suggestions?: Array<string>
   suggestionsLoading?: boolean
   onSelectSuggestion?: (suggestion: string) => void
   onLoadMore?: () => void
@@ -176,8 +177,8 @@ export function ChatMessagesVirtual({
     return index >= 0 ? index : null
   }, [branchInfo?.anchorMessageId, messages])
 
-  const rows = useMemo<Row[]>(() => {
-    const base: Row[] = messages.map((message, messageIndex) => ({
+  const rows = useMemo<Array<Row>>(() => {
+    const base: Array<Row> = messages.map((message, messageIndex) => ({
       type: 'message',
       message,
       messageIndex,
@@ -303,7 +304,6 @@ export function ChatMessagesVirtual({
         regenerationOriginalLengthRef.current = 0
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regeneratingMessageId, messages])
 
   // Load more when scrolling to top

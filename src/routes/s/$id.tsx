@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Message01Icon, UserIcon, AiBrain01Icon } from '@hugeicons/core-free-icons'
-import { Button } from '@/components/ui/button'
+import { AiBrain01Icon, Message01Icon, UserIcon } from '@hugeicons/core-free-icons'
 import { Streamdown } from 'streamdown'
-import { CollapsibleCodeBlocks } from '@/components/collapsible-code-blocks'
 import { useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { CollapsibleCodeBlocks } from '@/components/collapsible-code-blocks'
 
 export const Route = createFileRoute('/s/$id')({
   component: SharedMessagePage,

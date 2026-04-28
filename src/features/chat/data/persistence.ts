@@ -1,7 +1,7 @@
-import type { QueryClient } from '@tanstack/react-query'
-import * as db from '@/lib/indexeddb'
 import { conversationKeys } from './queries'
+import type { QueryClient } from '@tanstack/react-query'
 import type { Conversation, Message } from '@/lib/indexeddb'
+import * as db from '@/lib/indexeddb'
 
 export async function hydrateConversationsCache(queryClient: QueryClient) {
   if (typeof window === 'undefined') return []
@@ -29,9 +29,9 @@ export async function hydrateMessagesCache(
 
 export function updateConversationCache(
   queryClient: QueryClient,
-  updater: (current: Conversation[]) => Conversation[],
+  updater: (current: Array<Conversation>) => Array<Conversation>,
 ) {
-  queryClient.setQueryData<Conversation[]>(conversationKeys.list(), (old) => {
+  queryClient.setQueryData<Array<Conversation>>(conversationKeys.list(), (old) => {
     const current = old ?? []
     return updater(current)
   })
@@ -40,9 +40,9 @@ export function updateConversationCache(
 export function updateMessagesCache(
   queryClient: QueryClient,
   conversationId: string,
-  updater: (current: Message[]) => Message[],
+  updater: (current: Array<Message>) => Array<Message>,
 ) {
-  queryClient.setQueryData<Message[]>(
+  queryClient.setQueryData<Array<Message>>(
     conversationKeys.messages(conversationId),
     (old) => {
       const current = old ?? []

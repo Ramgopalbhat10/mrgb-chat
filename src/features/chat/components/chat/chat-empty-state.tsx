@@ -1,10 +1,10 @@
-import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  Attachment01Icon,
   AiBrain01Icon,
+  Attachment01Icon,
   Search01Icon,
 } from '@hugeicons/core-free-icons'
+import { Button } from '@/components/ui/button'
 
 export function ChatEmptyState() {
   return (

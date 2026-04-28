@@ -45,7 +45,7 @@ const extractPlainText = (input: string) => {
   return filtered.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
 
-const suggestionsSchema = jsonSchema<{ suggestions: string[] }>({
+const suggestionsSchema = jsonSchema<{ suggestions: Array<string> }>({
   type: 'object',
   additionalProperties: false,
   properties: {

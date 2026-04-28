@@ -1,24 +1,38 @@
 import {
-  Share01Icon,
-  Download01Icon,
-  Copy01Icon,
-  Refresh01Icon,
-  Tick01Icon,
-  Globe02Icon,
-  Loading03Icon,
   ArrowDown01Icon,
-  ArrowUp01Icon,
-  ArrowRight01Icon,
   ArrowExpand02Icon,
-  Minimize01Icon,
+  ArrowRight01Icon,
+  ArrowUp01Icon,
+  Cancel01Icon,
+  Copy01Icon,
+  Download01Icon,
   Exchange01Icon,
   GitBranchIcon,
+  Globe02Icon,
+  Loading03Icon,
+  Minimize01Icon,
   PencilEdit01Icon,
-  Cancel01Icon,
+  Refresh01Icon,
   SentIcon,
+  Share01Icon,
+  Tick01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useState, useRef, useEffect, useMemo, memo } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { Streamdown } from 'streamdown'
+import { code } from '@streamdown/code'
+import { MessageUsageIndicator } from '../message-usage'
+import {
+  
+  formatThoughtDuration,
+  getMessageMeta,
+  getMessageText,
+  getReasoningParts,
+  messageAnchorId
+} from '../utils/chat-message-utils'
+import type { UIMessage } from 'ai'
+import type { RegenerationOptions } from '@/features/chat/types/regeneration'
+import type {ReasoningSession} from '../utils/chat-message-utils';
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -31,23 +45,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { MessageUsageIndicator } from '../message-usage'
 import { cn } from '@/lib/utils'
-import { Streamdown } from 'streamdown'
-import { code } from '@streamdown/code'
 import { CollapsibleCodeBlocks } from '@/components/collapsible-code-blocks'
-import type { UIMessage } from 'ai'
 import { ModelSelector } from '@/features/chat/components/chat/model-selector'
-import type { RegenerationOptions } from '@/features/chat/types/regeneration'
 import { useIsMobile } from '@/hooks/use-mobile'
-import {
-  formatThoughtDuration,
-  getMessageMeta,
-  getMessageText,
-  getReasoningParts,
-  messageAnchorId,
-  type ReasoningSession,
-} from '../utils/chat-message-utils'
 
 function MessageAction({
   icon,

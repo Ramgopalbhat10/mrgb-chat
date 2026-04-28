@@ -1,5 +1,6 @@
-import { openDB, type IDBPDatabase } from 'idb'
+import {  openDB } from 'idb'
 import { compressString, decompressString } from './compression'
+import type {IDBPDatabase} from 'idb';
 
 export interface Conversation {
   id: string
@@ -104,7 +105,7 @@ function getDB(): Promise<IDBPDatabase> {
 }
 
 // Conversation operations
-export async function getAllConversations(): Promise<Conversation[]> {
+export async function getAllConversations(): Promise<Array<Conversation>> {
   const db = await getDB()
   const conversations = await db.getAllFromIndex(
     'conversations',
@@ -180,7 +181,7 @@ export async function deleteConversation(id: string): Promise<void> {
 // Message operations
 export async function getMessagesByConversation(
   conversationId: string,
-): Promise<Message[]> {
+): Promise<Array<Message>> {
   const db = await getDB()
   const messages = await db.getAllFromIndex(
     'messages',
@@ -243,7 +244,7 @@ export async function deleteMessage(id: string): Promise<void> {
 }
 
 // Project operations
-export async function getAllProjects(): Promise<Project[]> {
+export async function getAllProjects(): Promise<Array<Project>> {
   const db = await getDB()
   return db.getAll('projects')
 }
@@ -303,7 +304,7 @@ export async function removeConversationFromProject(
 
 export async function getProjectsForConversation(
   conversationId: string,
-): Promise<string[]> {
+): Promise<Array<string>> {
   const db = await getDB()
   const associations = await db.getAllFromIndex(
     'conversationProjects',
@@ -315,7 +316,7 @@ export async function getProjectsForConversation(
 
 export async function getConversationsForProject(
   projectId: string,
-): Promise<string[]> {
+): Promise<Array<string>> {
   const db = await getDB()
   const associations = await db.getAllFromIndex(
     'conversationProjects',
@@ -327,8 +328,8 @@ export async function getConversationsForProject(
 
 // Bulk operations for hydration
 export async function hydrateFromIndexedDB(): Promise<{
-  conversations: Conversation[]
-  projects: Project[]
+  conversations: Array<Conversation>
+  projects: Array<Project>
 }> {
   try {
     const [conversations, projects] = await Promise.all([

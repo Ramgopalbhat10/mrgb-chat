@@ -1,9 +1,10 @@
+import type {LlmSettings} from '@/lib/llm-settings';
 import { redis } from '@/server/cache/redis'
 import { cacheKeys } from '@/server/cache/keys'
 import {
   DEFAULT_LLM_SETTINGS,
-  type LlmSettings,
-  normalizeLlmSettings,
+  
+  normalizeLlmSettings
 } from '@/lib/llm-settings'
 
 const SETTINGS_KEY = cacheKeys.llmSettings()

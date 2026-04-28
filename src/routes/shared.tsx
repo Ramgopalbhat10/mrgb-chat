@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChatHeader } from '@/features/chat/components'
-import { useUpdateConversation } from '@/features/chat/data/mutations'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  Share01Icon,
-  Globe02Icon,
   BubbleChatIcon,
+  Globe02Icon,
   LockIcon,
+  Share01Icon,
 } from '@hugeicons/core-free-icons'
+import { ChatHeader } from '@/features/chat/components'
+import { useUpdateConversation } from '@/features/chat/data/mutations'
 import {
   Tooltip,
   TooltipContent,
@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { sharedKeys, sharedItemsQueryOptions } from '@/features/chat/data/queries'
+import { sharedItemsQueryOptions, sharedKeys } from '@/features/chat/data/queries'
 
 export const Route = createFileRoute('/shared')({
   component: SharedPage,

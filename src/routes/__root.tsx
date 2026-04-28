@@ -1,23 +1,23 @@
 import {
   HeadContent,
-  Scripts,
   Outlet,
+  Scripts,
   createRootRoute,
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import appCss from '../styles.css?url'
 import { AppSidebar } from '@/components/app-sidebar'
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { useAppStore } from '@/stores/app-store'
 import { AuthProvider, useAuth } from '@/providers/auth-provider'
 import { QueryProvider } from '@/providers/query-provider'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { conversationsQueryOptions } from '@/features/chat/data/queries'
 import { hydrateConversationsCache } from '@/features/chat/data/persistence'
 import { useCacheVersionSync } from '@/features/chat/hooks/use-cache-version-sync'
 
-import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
   head: () => ({

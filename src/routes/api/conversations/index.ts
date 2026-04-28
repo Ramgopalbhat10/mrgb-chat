@@ -1,14 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { and, desc, eq, gt, sql } from 'drizzle-orm'
 
+import type {ConversationTitle} from '@/server/cache';
 import { db } from '@/server/db'
 import { conversations } from '@/server/db/schema'
 import {
+  
   getCachedConversationTitles,
-  setCachedConversationTitles,
-  invalidateOnConversationCreate,
   incrementCacheVersion,
-  type ConversationTitle,
+  invalidateOnConversationCreate,
+  setCachedConversationTitles
 } from '@/server/cache'
 import { requireAuth } from '@/server/auth/get-session'
 
@@ -165,7 +166,7 @@ export const Route = createFileRoute('/api/conversations/')({
 
           // Transform to response format
           const fallbackNow = new Date()
-          const titles: ConversationTitle[] = items.map((c) => ({
+          const titles: Array<ConversationTitle> = items.map((c) => ({
             id: c.id,
             title: c.title,
             createdAt: toIsoOrNull(c.createdAt, fallbackNow) ?? fallbackNow.toISOString(),

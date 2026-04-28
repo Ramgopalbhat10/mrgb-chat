@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChatHeader, ConversationList } from '@/features/chat/components'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft01Icon } from '@hugeicons/core-free-icons'
+import { ChatHeader, ConversationList } from '@/features/chat/components'
 import { Button } from '@/components/ui/button'
-import { projectsQueryOptions, projectConversationsQueryOptions, conversationsQueryOptions } from '@/features/chat/data/queries'
+import { conversationsQueryOptions, projectConversationsQueryOptions, projectsQueryOptions } from '@/features/chat/data/queries'
 
 export const Route = createFileRoute('/project/$id')({
   component: ProjectDetailPage,

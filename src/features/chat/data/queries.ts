@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
-import * as db from '@/lib/indexeddb'
 import type { Conversation, Message } from '@/lib/indexeddb'
+import * as db from '@/lib/indexeddb'
 
 const CONVERSATIONS_PAGE_SIZE = 100
 const MESSAGES_PAGE_SIZE = 200
@@ -61,8 +61,8 @@ interface ServerConversation {
   forkedAt?: string | null
 }
 
-async function fetchAllConversationsFromServer(): Promise<ServerConversation[]> {
-  const conversations: ServerConversation[] = []
+async function fetchAllConversationsFromServer(): Promise<Array<ServerConversation>> {
+  const conversations: Array<ServerConversation> = []
   let cursor: string | null | undefined
   let hasMore = true
 
@@ -78,7 +78,7 @@ async function fetchAllConversationsFromServer(): Promise<ServerConversation[]> 
     }
 
     const data = await response.json()
-    const items: ServerConversation[] = Array.isArray(data)
+    const items: Array<ServerConversation> = Array.isArray(data)
       ? data
       : data.conversations || []
 
@@ -96,9 +96,9 @@ async function fetchAllConversationsFromServer(): Promise<ServerConversation[]> 
 }
 
 function mergeConversationsWithLocal(
-  serverConversations: ServerConversation[],
-  localConversations: Conversation[],
-): Conversation[] {
+  serverConversations: Array<ServerConversation>,
+  localConversations: Array<Conversation>,
+): Array<Conversation> {
   const localMap = new Map(localConversations.map((c) => [c.id, c]))
 
   return serverConversations.map((serverConv) => {
@@ -134,7 +134,7 @@ function mergeConversationsWithLocal(
   })
 }
 
-async function syncConversationsToIndexedDB(conversations: Conversation[]) {
+async function syncConversationsToIndexedDB(conversations: Array<Conversation>) {
   for (const conv of conversations) {
     const existing = await db.getConversation(conv.id)
     if (existing) {
@@ -159,8 +159,8 @@ async function syncConversationsToIndexedDB(conversations: Conversation[]) {
 }
 
 async function removeLocalConversationsNotOnServer(
-  localConversations: Conversation[],
-  serverConversations: Conversation[],
+  localConversations: Array<Conversation>,
+  serverConversations: Array<Conversation>,
 ) {
   const serverIds = new Set(serverConversations.map((c) => c.id))
   const localOnly = localConversations.filter((c) => !serverIds.has(c.id))
@@ -173,7 +173,7 @@ async function removeLocalConversationsNotOnServer(
 export const conversationsQueryOptions = () =>
   queryOptions({
     queryKey: conversationKeys.list(),
-    queryFn: async (): Promise<Conversation[]> => {
+    queryFn: async (): Promise<Array<Conversation>> => {
       const localConversations =
         typeof window === 'undefined' ? [] : await db.getAllConversations()
 
@@ -266,8 +266,8 @@ interface ServerMessage {
 
 async function fetchAllMessagesFromServer(
   conversationId: string,
-): Promise<ServerMessage[]> {
-  const messages: ServerMessage[] = []
+): Promise<Array<ServerMessage>> {
+  const messages: Array<ServerMessage> = []
   let cursor: string | undefined
   let hasMore = true
 
@@ -285,7 +285,7 @@ async function fetchAllMessagesFromServer(
     }
 
     const data = await response.json()
-    const items: ServerMessage[] = Array.isArray(data)
+    const items: Array<ServerMessage> = Array.isArray(data)
       ? data
       : data.messages || []
 
@@ -298,9 +298,9 @@ async function fetchAllMessagesFromServer(
 }
 
 function mergeMessagesWithLocal(
-  serverMessages: ServerMessage[],
-  localMessages: Message[],
-): Message[] {
+  serverMessages: Array<ServerMessage>,
+  localMessages: Array<Message>,
+): Array<Message> {
   const messageMap = new Map<string, Message>()
   const localByClientId = new Map<string, string>()
 
@@ -338,7 +338,7 @@ function mergeMessagesWithLocal(
   )
 }
 
-async function syncMessagesToIndexedDB(messages: Message[]) {
+async function syncMessagesToIndexedDB(messages: Array<Message>) {
   for (const message of messages) {
     await db.createMessage(message)
   }
@@ -347,7 +347,7 @@ async function syncMessagesToIndexedDB(messages: Message[]) {
 export const messagesQueryOptions = (conversationId: string) =>
   queryOptions({
     queryKey: conversationKeys.messages(conversationId),
-    queryFn: async (): Promise<Message[]> => {
+    queryFn: async (): Promise<Array<Message>> => {
       const localMessages =
         typeof window === 'undefined'
           ? []
@@ -382,8 +382,8 @@ export interface Project {
 }
 
 export interface ProjectMetadata {
-  projects: Project[]
-  conversationProjects: Record<string, string[]>
+  projects: Array<Project>
+  conversationProjects: Record<string, Array<string>>
 }
 
 export interface SharedConversation {
@@ -404,15 +404,15 @@ export interface SharedResponse {
 }
 
 export interface SharedItems {
-  conversations: SharedConversation[]
-  responses: SharedResponse[]
+  conversations: Array<SharedConversation>
+  responses: Array<SharedResponse>
   counts: { conversations: number; responses: number; total: number }
 }
 
 export const projectsQueryOptions = () =>
   queryOptions({
     queryKey: projectKeys.list(),
-    queryFn: async (): Promise<Project[]> => {
+    queryFn: async (): Promise<Array<Project>> => {
       const response = await fetch('/api/projects')
       if (!response.ok) {
         throw new Error('Failed to fetch projects')
@@ -438,7 +438,7 @@ export const projectsMetadataQueryOptions = () =>
 export const projectConversationsQueryOptions = (projectId: string) =>
   queryOptions({
     queryKey: projectKeys.conversations(projectId),
-    queryFn: async (): Promise<string[]> => {
+    queryFn: async (): Promise<Array<string>> => {
       const response = await fetch(`/api/projects/${projectId}/conversations`)
       if (!response.ok) {
         throw new Error('Failed to fetch project conversations')
@@ -468,7 +468,7 @@ export interface ModelMetadata {
   context_window?: number
   max_tokens?: number
   owned_by: string
-  tags?: string[]
+  tags?: Array<string>
   pricing?: {
     input: string
     output: string
@@ -480,7 +480,7 @@ export interface ModelMetadata {
 export const availableModelsQueryOptions = () =>
   queryOptions({
     queryKey: modelKeys.available(),
-    queryFn: async (): Promise<ModelMetadata[]> => {
+    queryFn: async (): Promise<Array<ModelMetadata>> => {
       const { getAvailableModels } = await import('@/server/ai/gateway')
       return getAvailableModels()
     },

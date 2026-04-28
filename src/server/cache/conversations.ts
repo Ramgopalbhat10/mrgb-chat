@@ -1,12 +1,13 @@
 import { redis } from './redis'
 import { 
-  cacheKeys, 
   CACHE_TTL, 
-  invalidationKeys,
-  type ConversationTitle,
-  type CachedProject,
-  type CachedSharedItems,
+   
+  
+  
+  cacheKeys,
+  invalidationKeys
 } from './keys'
+import type {CachedProject, CachedSharedItems, ConversationTitle} from './keys';
 
 // Re-export types from keys for convenience
 export type { ConversationTitle, CachedProject, CachedSharedItems }
@@ -26,11 +27,11 @@ export interface MessagePreview {
 }
 
 // Get conversation titles from cache
-export async function getCachedConversationTitles(): Promise<ConversationTitle[] | null> {
+export async function getCachedConversationTitles(): Promise<Array<ConversationTitle> | null> {
   if (!redis) return null
 
   try {
-    const cached = await redis.get<ConversationTitle[]>(cacheKeys.conversationTitles())
+    const cached = await redis.get<Array<ConversationTitle>>(cacheKeys.conversationTitles())
     return cached
   } catch (error) {
     console.error('Redis get error (conversation titles):', error)
@@ -40,7 +41,7 @@ export async function getCachedConversationTitles(): Promise<ConversationTitle[]
 
 // Set conversation titles in cache
 export async function setCachedConversationTitles(
-  titles: ConversationTitle[],
+  titles: Array<ConversationTitle>,
 ): Promise<void> {
   if (!redis) return
 
@@ -87,7 +88,7 @@ export async function setCachedMessagePreview(
 }
 
 // Invalidate cache keys
-export async function invalidateCache(keys: string[]): Promise<void> {
+export async function invalidateCache(keys: Array<string>): Promise<void> {
   if (!redis || keys.length === 0) return
 
   try {
@@ -136,11 +137,11 @@ export async function invalidateOnSharedItemChange(): Promise<void> {
 // Project caching
 // ============================================
 
-export async function getCachedProjects(): Promise<CachedProject[] | null> {
+export async function getCachedProjects(): Promise<Array<CachedProject> | null> {
   if (!redis) return null
 
   try {
-    const cached = await redis.get<CachedProject[]>(cacheKeys.projectList())
+    const cached = await redis.get<Array<CachedProject>>(cacheKeys.projectList())
     return cached
   } catch (error) {
     console.error('Redis get error (projects):', error)
@@ -148,7 +149,7 @@ export async function getCachedProjects(): Promise<CachedProject[] | null> {
   }
 }
 
-export async function setCachedProjects(projects: CachedProject[]): Promise<void> {
+export async function setCachedProjects(projects: Array<CachedProject>): Promise<void> {
   if (!redis) return
 
   try {

@@ -1,18 +1,19 @@
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  BubbleChatIcon,
-  GitBranchIcon,
-  StarIcon,
-  Folder01Icon,
   Add01Icon,
-  Search01Icon,
-  Delete01Icon,
+  BubbleChatIcon,
   Cancel01Icon,
+  Delete01Icon,
+  Folder01Icon,
+  GitBranchIcon,
+  Search01Icon,
+  StarIcon,
 } from '@hugeicons/core-free-icons'
-import { useDeleteConversation } from '@/features/chat/data/mutations'
 import { ConversationActionsDropdown } from './conversation-actions-dropdown'
+import type { Conversation } from '@/lib/indexeddb'
+import { useDeleteConversation } from '@/features/chat/data/mutations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -25,7 +26,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import type { Conversation } from '@/lib/indexeddb'
 
 interface Project {
   id: string
@@ -33,13 +33,13 @@ interface Project {
 }
 
 interface ConversationListProps {
-  conversations: Conversation[]
+  conversations: Array<Conversation>
   title: string
   newChatPath?: string
   newChatLabel?: string
   showProjectBadges?: boolean
-  projects?: Project[]
-  conversationProjects?: Record<string, string[]>
+  projects?: Array<Project>
+  conversationProjects?: Record<string, Array<string>>
   onProjectsChanged?: () => void
   emptyMessage?: string
   emptyDescription?: string
@@ -69,7 +69,7 @@ export function ConversationList({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const getProjectsForConversation = (conversationId: string): Project[] => {
+  const getProjectsForConversation = (conversationId: string): Array<Project> => {
     const projectIds = conversationProjects[conversationId] || []
     return projects.filter((p) => projectIds.includes(p.id))
   }

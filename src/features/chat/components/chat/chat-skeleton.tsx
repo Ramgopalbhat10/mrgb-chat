@@ -1,5 +1,5 @@
-import { Skeleton } from '@/components/ui/skeleton'
 import { ChatInput } from './chat-input'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export function ChatSkeleton() {
   return (

@@ -1,26 +1,27 @@
-import { Button } from '@/components/ui/button'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  SentIcon,
   Attachment01Icon,
   GlobalIcon,
+  SentIcon,
 } from '@hugeicons/core-free-icons'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { ModelSelector } from './model-selector'
 import { ContextUsage } from './context-usage'
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import {
-  availableModelsQueryOptions,
-  type ModelMetadata,
-} from '@/features/chat/data/queries'
 import type { UIMessage } from 'ai'
+import type {ModelMetadata} from '@/features/chat/data/queries';
+import {
+  
+  availableModelsQueryOptions
+} from '@/features/chat/data/queries'
+import { Button } from '@/components/ui/button'
 
 interface ChatInputProps {
   input: string
   onInputChange: (value: string) => void
   onSubmit: (e: React.FormEvent, modelId?: string) => void
   isLoading?: boolean
-  messages?: UIMessage[]
+  messages?: Array<UIMessage>
   defaultModelId?: string
   selectedModelId?: string
   onModelChange?: (modelId: string) => void
@@ -141,7 +142,7 @@ export function ChatInput({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== 'Enter' || e.shiftKey) return
-    if ((e.nativeEvent as KeyboardEvent).isComposing) return
+    if ((e.nativeEvent).isComposing) return
     e.preventDefault()
     if (isLoading || !input.trim()) return
     formRef.current?.requestSubmit()

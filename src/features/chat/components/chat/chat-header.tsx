@@ -1,22 +1,22 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { sharedKeys } from '@/features/chat/data/queries'
-import { Button } from '@/components/ui/button'
-import { useSidebar } from '@/components/ui/sidebar'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
+  Copy01Icon,
+  Globe02Icon,
+  Loading03Icon,
+  LockIcon,
   Share01Icon,
   SidebarLeftIcon,
-  LockIcon,
-  Globe02Icon,
-  Copy01Icon,
   Tick02Icon,
-  Loading03Icon,
 } from '@hugeicons/core-free-icons'
 import { ConversationActionsDropdown } from '../conversations'
 import { UserMessageJumpMenu } from './user-message-jump-menu'
 import type { Conversation } from '@/lib/indexeddb'
 import type { UIMessage } from 'ai'
+import { useSidebar } from '@/components/ui/sidebar'
+import { Button } from '@/components/ui/button'
+import { sharedKeys } from '@/features/chat/data/queries'
 import {
   Dialog,
   DialogContent,
@@ -32,7 +32,7 @@ interface ChatHeaderProps {
   conversation?: Conversation
   onDeleted?: () => void
   showShare?: boolean
-  messages?: UIMessage[]
+  messages?: Array<UIMessage>
   onJumpToMessage?: (messageId: string) => void
 }
 

@@ -44,7 +44,7 @@ function extractThinkBlocks(text: string) {
     reasoningText = reasoningText.replace(/<\/?think>/gi, '')
   }
 
-  const state = (isStreaming ? 'streaming' : 'done') as 'streaming' | 'done'
+  const state = (isStreaming ? 'streaming' : 'done')
 
   return {
     displayText,

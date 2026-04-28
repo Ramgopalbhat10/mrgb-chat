@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import type { LlmSettings } from '@/lib/llm-settings'
 import { llmSettingsKeys } from './queries'
+import type { LlmSettings } from '@/lib/llm-settings'
 
 async function updateLlmSettings(
   updates: Partial<LlmSettings>,
