@@ -1,14 +1,25 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { GithubIcon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { authClient } from '@/lib/auth-client'
+import { AUTH_BYPASS_ENABLED } from '@/lib/auth-bypass-config'
 
 type LoginSearch = {
   error?: string
 }
 
+const isAuthBypassEnabled = createServerFn({ method: 'GET' }).handler(
+  () => AUTH_BYPASS_ENABLED,
+)
+
 export const Route = createFileRoute('/login')({
+  beforeLoad: async () => {
+    if (await isAuthBypassEnabled()) {
+      throw redirect({ to: '/' })
+    }
+  },
   component: LoginPage,
   validateSearch: (search: Record<string, unknown>): LoginSearch => {
     return {
@@ -44,7 +55,12 @@ function LoginPage() {
         )}
 
         <Button className="w-full" size="lg" onClick={handleSignIn}>
-          <HugeiconsIcon icon={GithubIcon} size={20} strokeWidth={2} className="mr-2" />
+          <HugeiconsIcon
+            icon={GithubIcon}
+            size={20}
+            strokeWidth={2}
+            className="mr-2"
+          />
           Sign in with GitHub
         </Button>
 
