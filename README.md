@@ -19,6 +19,28 @@ git config core.hooksPath .githooks   # or: bun run hooks:install
 The `.githooks/` directory contains `pre-commit`, `commit-msg`, and `pre-push`
 hooks that run the workflow checks, lint, and build.
 
+### Local auth bypass
+
+For local development without GitHub OAuth credentials, set
+`AUTH_BYPASS=true` in your shell or `.env.local`:
+
+```bash
+AUTH_BYPASS=true bun run dev
+```
+
+When the flag is on:
+
+- `src/lib/auth.ts` does not construct the BetterAuth instance, so missing
+  `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` no longer crash boot.
+- `GET /api/auth/get-session` returns a synthetic local session
+  (`local@example.com` / `Local Dev`).
+- `requireAuth`/`getSession` short-circuit to that synthetic session, so
+  protected API routes return 200 instead of 401.
+- `/login` redirects to `/` automatically.
+
+Leave `AUTH_BYPASS` unset (or set to anything other than `true`) to use the
+normal GitHub OAuth flow.
+
 ### Where the rules live
 
 - **Workflow router (always read first):** [`AGENTS.md`](AGENTS.md)
