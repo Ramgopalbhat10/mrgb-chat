@@ -1,0 +1,4 @@
+interface:
+  display_name: "Chat Workflow"
+  short_description: "Repo workflow routing and quality gates"
+  default_prompt: "Use $chat-workflow to follow this repository's label-driven workflow correctly."
