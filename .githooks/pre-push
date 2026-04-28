@@ -6,9 +6,19 @@ ZERO_SHA="0000000000000000000000000000000000000000"
 tmp_changed_files="$(mktemp)"
 trap 'rm -f "$tmp_changed_files"' EXIT
 
-append_changed_files() {
+append_range() {
 	range="$1"
 	git diff --name-only "$range" >> "$tmp_changed_files"
+}
+
+append_history() {
+	sha="$1"
+	# List every file touched by commits reachable from $sha. Used when we have
+	# no known base to diff against (e.g. very first push of a branch with no
+	# origin/main). `git diff --name-only <sha>` would compare against the
+	# worktree and miss all files when the tree is clean, which would silently
+	# skip the hook's checks on first push.
+	git log --name-only --pretty=format: "$sha" >> "$tmp_changed_files"
 }
 
 while read -r local_ref local_sha remote_ref remote_sha; do
@@ -19,12 +29,12 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 	if [ "$remote_sha" = "$ZERO_SHA" ]; then
 		if git rev-parse --verify origin/main >/dev/null 2>&1; then
 			merge_base="$(git merge-base "$local_sha" origin/main)"
-			append_changed_files "$merge_base..$local_sha"
+			append_range "$merge_base..$local_sha"
 		else
-			append_changed_files "$local_sha"
+			append_history "$local_sha"
 		fi
 	else
-		append_changed_files "$remote_sha..$local_sha"
+		append_range "$remote_sha..$local_sha"
 	fi
 done
 

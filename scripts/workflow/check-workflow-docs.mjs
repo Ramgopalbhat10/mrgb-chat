@@ -182,24 +182,27 @@ if (changedFiles.length === 0) {
   process.exit(0)
 }
 
-const implementationFiles = changedFiles.filter((filePath) => !isDocumentationOnly(filePath))
-if (implementationFiles.length === 0) {
-  pass('Workflow documentation gate passed (docs-only changes detected).', [
-    'No implementation files changed, so workflow documentation linkage is not required.',
-  ])
-  process.exit(0)
-}
-
+// Branch prefix check runs for every non-empty diff (docs-only included) so the
+// "never commit to main" rule applies to documentation updates as well.
 const currentBranch = detectCurrentBranch()
 if (!currentBranch) {
   pass('Branch prefix check skipped (unable to resolve branch in detached HEAD context).', [
     'This is expected in some CI environments.',
   ])
 } else if (!ALLOWED_BRANCH_PREFIXES.some((prefix) => currentBranch.startsWith(prefix))) {
-  fail('Current branch prefix is invalid for implementation work.', [
+  fail('Current branch prefix is invalid.', [
     `branch=${currentBranch}`,
     'Allowed prefixes: feature/, fix/, refactor/, chore/, docs/',
+    'Docs-only changes still require an allowed branch prefix (never commit directly to main).',
   ])
+}
+
+const implementationFiles = changedFiles.filter((filePath) => !isDocumentationOnly(filePath))
+if (implementationFiles.length === 0) {
+  pass('Workflow documentation gate passed (docs-only changes detected).', [
+    'No implementation files changed, so workflow documentation linkage is not required.',
+  ])
+  process.exit(0)
 }
 
 const hasProgressChange = changedFiles.includes('docs/PROGRESS.md')

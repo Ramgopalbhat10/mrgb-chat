@@ -69,6 +69,7 @@
 | Date | Unit | Summary |
 |---|---|---|
 | 2026-04-28 | chore | Ported the label-driven workflow infrastructure from `notes` to `mrgb-chat`, adapted for Bun and the existing test suite. |
+| 2026-04-28 | fix | Addressed Codex review: `pre-push` now walks commit history via `git log --name-only` when `origin/main` is absent so first-push checks don't silently skip; `check-workflow-docs.mjs` runs the branch-prefix check before the docs-only early return so docs-only commits on `main` are rejected. |
 
 ## Test Plan
 - Inspect the new scaffolding for structural correctness.
