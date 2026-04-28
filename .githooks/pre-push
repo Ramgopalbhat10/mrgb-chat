@@ -1,0 +1,45 @@
+#!/usr/bin/env sh
+set -eu
+
+ZERO_SHA="0000000000000000000000000000000000000000"
+
+tmp_changed_files="$(mktemp)"
+trap 'rm -f "$tmp_changed_files"' EXIT
+
+append_changed_files() {
+	range="$1"
+	git diff --name-only "$range" >> "$tmp_changed_files"
+}
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+	[ -z "${local_ref:-}" ] && continue
+	[ -z "${local_sha:-}" ] && continue
+	[ "$local_sha" = "$ZERO_SHA" ] && continue
+
+	if [ "$remote_sha" = "$ZERO_SHA" ]; then
+		if git rev-parse --verify origin/main >/dev/null 2>&1; then
+			merge_base="$(git merge-base "$local_sha" origin/main)"
+			append_changed_files "$merge_base..$local_sha"
+		else
+			append_changed_files "$local_sha"
+		fi
+	else
+		append_changed_files "$remote_sha..$local_sha"
+	fi
+done
+
+changed_files="$(sort -u "$tmp_changed_files" | sed '/^$/d')"
+
+if [ -z "$changed_files" ]; then
+	echo "No changed files detected for push refs. Skipping checks."
+	exit 0
+fi
+
+if ! printf '%s\n' "$changed_files" | grep -E -q -v '\.(md|mdx)$'; then
+	echo "Markdown-only changes detected. Skipping workflow docs, lint, and build checks."
+	exit 0
+fi
+
+bun run workflow:check-docs
+bun run lint
+bun run build
