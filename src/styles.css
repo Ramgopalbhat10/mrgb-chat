@@ -226,6 +226,12 @@ li[data-streamdown="list-item"] {
   margin-left: 1rem;
 }
 
+div[data-streamdown="code-block"] {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+}
+
 div[data-streamdown="code-block-header"] {
   padding: 4px;
   white-space: normal;
@@ -235,6 +241,8 @@ div[data-streamdown="code-block-header"] {
 
 pre[data-streamdown="code-block-body"] {
   padding: 8px;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 pre[data-streamdown="code-block-body"] code {
