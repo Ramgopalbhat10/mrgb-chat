@@ -1,10 +1,22 @@
 import { auth } from '@/lib/auth'
+import {
+  AUTH_BYPASS_ENABLED,
+  createAuthBypassSession,
+} from '@/lib/auth-bypass-config'
 
 /**
  * Get the current session from a request.
  * Returns null if not authenticated.
  */
 export async function getSession(request: Request) {
+  if (AUTH_BYPASS_ENABLED) {
+    return createAuthBypassSession()
+  }
+
+  if (!auth) {
+    return null
+  }
+
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
