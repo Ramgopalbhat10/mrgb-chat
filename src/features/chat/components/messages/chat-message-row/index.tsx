@@ -292,19 +292,19 @@ function ChatMessageRowComponent({
   }
 
   return (
-    <div id={messageAnchorId(message.id)} className="w-full px-0">
+    <div id={messageAnchorId(message.id)} className="w-full min-w-0 px-0">
       <div
         className={cn(
-          'flex flex-col gap-1.5 py-3 group',
+          'group flex min-w-0 flex-col gap-1.5 py-3',
           isUser ? 'items-end' : 'items-start',
         )}
       >
         <div
           className={cn(
-            'rounded-md text-sm leading-relaxed',
+            'min-w-0 rounded-md text-sm leading-relaxed',
             isUser
-              ? 'bg-secondary px-3 py-2 text-foreground border border-secondary max-w-[85%]'
-              : 'text-foreground w-full',
+              ? 'max-w-[85%] overflow-hidden border border-secondary bg-secondary px-3 py-2 text-foreground'
+              : 'w-full text-foreground',
           )}
           ref={isUser ? messageContainerRef : undefined}
           style={isUser && isEditing && editWidth ? { width: editWidth } : undefined}
@@ -353,7 +353,7 @@ function ChatMessageRowComponent({
                 <div
                   ref={userMessageRef}
                   className={cn(
-                    'whitespace-pre-wrap overflow-hidden transition-all duration-200',
+                    'overflow-hidden whitespace-pre-wrap break-words transition-all duration-200',
                     needsCollapse && !isUserMessageExpanded && 'max-h-[120px]',
                   )}
                 >
@@ -419,12 +419,8 @@ function ChatMessageRowComponent({
                 </div>
               ) : (
                 <CollapsibleCodeBlocks
-                  className={cn(
-                    'prose prose-sm prose-invert max-w-none',
-                    (isLastAssistant || isBeingRegenerated) &&
-                      isStreaming &&
-                      '**:animate-in **:fade-in **:duration-150',
-                  )}
+                  disabled={streamdownMode === 'streaming'}
+                  className="prose prose-sm prose-invert max-w-none min-w-0 overflow-hidden break-words"
                 >
                   <Streamdown
                     mode={streamdownMode}

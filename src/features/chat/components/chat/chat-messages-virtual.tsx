@@ -73,7 +73,7 @@ export function ChatMessagesVirtual({
   const prevRegeneratingMessageIdRef = useRef<string | null>(null)
   const autoScrollEnabledRef = useRef(true)
   const scrollAnchorRef = useRef<{
-    messageId: string
+    rowKey: string
     offset: number
   } | null>(null)
   const wasStreamingRef = useRef(false)
@@ -202,10 +202,28 @@ export function ChatMessagesVirtual({
     return base
   }, [branchAnchorIndex, branchInfo, messages, showLoadingIndicator, showSuggestions])
 
+  const getRowKey = useCallback((row: Row | undefined, index: number) => {
+    if (!row) return `missing:${index}`
+    if (row.type === 'message') return `message:${row.message.id}`
+    if (row.type === 'branch') {
+      return `branch:${row.branchInfo.id}:${row.branchInfo.anchorMessageId}`
+    }
+    return row.type
+  }, [])
+
+  const findMessageRowIndex = useCallback(
+    (messageId: string) =>
+      rows.findIndex(
+        (row) => row.type === 'message' && row.message.id === messageId,
+      ),
+    [rows],
+  )
+
   const totalCount = rows.length
   const rowVirtualizer = useVirtualizer({
     count: totalCount,
     getScrollElement: () => parentRef.current,
+    getItemKey: (index) => getRowKey(rows[index], index),
     estimateSize: () => 140,
     overscan: 6,
     useAnimationFrameWithResizeObserver: true,
@@ -251,9 +269,7 @@ export function ChatMessagesVirtual({
   useEffect(() => {
     if (!scrollToMessageId || messages.length === 0) return
     if (hasScrolledToTarget.current) return
-    const targetIndex = messages.findIndex(
-      (message) => message.id === scrollToMessageId,
-    )
+    const targetIndex = findMessageRowIndex(scrollToMessageId)
     if (targetIndex === -1) return
     hasScrolledToTarget.current = true
     if (typeof requestAnimationFrame === 'function') {
@@ -261,19 +277,26 @@ export function ChatMessagesVirtual({
     } else {
       scrollToMessageIndex(targetIndex)
     }
-  }, [messages, scrollToMessageId, scrollToMessageIndex])
+  }, [findMessageRowIndex, messages.length, scrollToMessageId, scrollToMessageIndex])
 
   // Auto-scroll to bottom when new messages arrive (skip if we have a scroll target or regenerating)
   useEffect(() => {
     if (scrollToMessageId && !hasScrolledToTarget.current) return
     if (regeneratingMessageId) return // Don't scroll during regeneration
-    if (messages.length > lastMessageCount.current) {
-      lastMessageCount.current = messages.length
-      if (autoScrollEnabledRef.current) {
-        rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end' })
-      }
+    const previousMessageCount = lastMessageCount.current
+    lastMessageCount.current = messages.length
+    if (messages.length <= previousMessageCount) return
+
+    if (autoScrollEnabledRef.current) {
+      rowVirtualizer.scrollToIndex(totalCount - 1, { align: 'end' })
     }
-  }, [messages.length, regeneratingMessageId, rowVirtualizer, scrollToMessageId])
+  }, [
+    messages.length,
+    regeneratingMessageId,
+    rowVirtualizer,
+    scrollToMessageId,
+    totalCount,
+  ])
 
   useEffect(() => {
     if (!showSuggestions) return
@@ -319,16 +342,17 @@ export function ChatMessagesVirtual({
   const captureScrollAnchor = useCallback(() => {
     const element = parentRef.current
     if (!element) return
-    const virtualItems = rowVirtualizer.getVirtualItems()
-    if (virtualItems.length === 0) return
-    const firstItem = virtualItems[0]
-    const message = messages[firstItem.index]
-    if (!message) return
+    const currentVirtualItems = rowVirtualizer.getVirtualItems()
+    if (currentVirtualItems.length === 0) return
+    const firstItem =
+      currentVirtualItems.find((item) => rows[item.index]?.type === 'message') ??
+      currentVirtualItems[0]
+    const rowKey = getRowKey(rows[firstItem.index], firstItem.index)
     scrollAnchorRef.current = {
-      messageId: message.id,
+      rowKey,
       offset: element.scrollTop - firstItem.start,
     }
-  }, [messages, rowVirtualizer])
+  }, [getRowKey, rows, rowVirtualizer])
 
   const updateScrollIndicator = useCallback(() => {
     const element = parentRef.current
@@ -357,10 +381,12 @@ export function ChatMessagesVirtual({
     const handleScrollEvent = () => {
       handleScroll()
       updateScrollIndicator()
-      const element = parentRef.current
-      if (!element) return
+      const scrollElement = parentRef.current
+      if (!scrollElement) return
       const distanceFromBottom =
-        element.scrollHeight - element.scrollTop - element.clientHeight
+        scrollElement.scrollHeight -
+        scrollElement.scrollTop -
+        scrollElement.clientHeight
       autoScrollEnabledRef.current = distanceFromBottom <= 4
       if (!autoScrollEnabledRef.current) {
         captureScrollAnchor()
@@ -396,7 +422,9 @@ export function ChatMessagesVirtual({
     const restore = () => {
       const element = parentRef.current
       if (!element) return
-      const index = messages.findIndex((message) => message.id === anchor.messageId)
+      const index = rows.findIndex(
+        (row, rowIndex) => getRowKey(row, rowIndex) === anchor.rowKey,
+      )
       if (index === -1) return
       const offsetInfo = rowVirtualizer.getOffsetForIndex(index, 'start')
       if (!offsetInfo) return
@@ -409,30 +437,61 @@ export function ChatMessagesVirtual({
     } else {
       setTimeout(restore, 0)
     }
-  }, [isStreaming, messages, rowVirtualizer])
+  }, [getRowKey, isStreaming, rows, rowVirtualizer])
 
   useEffect(() => {
-    const lastMessage = messages[messages.length - 1]
-    if (!lastMessage) return
-    if (lastAnimatedMessageIdRef.current === lastMessage.id) return
+    if (!isStreaming) return
+    if (typeof requestAnimationFrame !== 'function') return
 
-    lastAnimatedMessageIdRef.current = lastMessage.id
+    const measureStreamingRows = () => {
+      const element = parentRef.current
+      if (!element) return
+
+      const activeRows = element.querySelectorAll<HTMLElement>(
+        '[data-active-stream-row="true"]',
+      )
+      activeRows.forEach((rowElement) => {
+        rowVirtualizer.measureElement(rowElement)
+      })
+
+      if (activeRows.length > 0 && autoScrollEnabledRef.current) {
+        element.scrollTop = element.scrollHeight
+      }
+    }
+
+    const frameId = requestAnimationFrame(measureStreamingRows)
+    const delayedFrameId = window.setTimeout(() => {
+      requestAnimationFrame(measureStreamingRows)
+    }, 120)
+
+    return () => {
+      cancelAnimationFrame(frameId)
+      window.clearTimeout(delayedFrameId)
+    }
+  }, [isStreaming, messages, reasoningSessions, rowVirtualizer])
+
+  useEffect(() => {
+    const latestMessage = messages[messages.length - 1]
+    if (!latestMessage) return
+    if (lastAnimatedMessageIdRef.current === latestMessage.id) return
+
+    lastAnimatedMessageIdRef.current = latestMessage.id
     setEnteringMessageIds((current) => {
       const next = new Set(current)
-      next.add(lastMessage.id)
+      next.add(latestMessage.id)
       return next
     })
 
     const timeoutId = window.setTimeout(() => {
       setEnteringMessageIds((current) => {
         const next = new Set(current)
-        next.delete(lastMessage.id)
+        next.delete(latestMessage.id)
         return next
       })
-      enterTimeoutsRef.current.delete(lastMessage.id)
+      enterTimeoutsRef.current.delete(latestMessage.id)
     }, 320)
 
-    enterTimeoutsRef.current.set(lastMessage.id, timeoutId)
+    enterTimeoutsRef.current.set(latestMessage.id, timeoutId)
   }, [messages])
 
   useEffect(() => {
@@ -511,9 +570,9 @@ export function ChatMessagesVirtual({
   return (
     <div
       ref={parentRef}
-      className="flex-1 overflow-y-auto scroll-smooth overscroll-contain relative"
+      className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth"
     >
-      <div className="w-full max-w-3xl mx-auto px-4 py-4">
+      <div className="mx-auto w-full max-w-3xl px-4 py-4">
         <div
           className="relative w-full"
           style={{ height: totalSize }}
@@ -606,6 +665,10 @@ export function ChatMessagesVirtual({
 
             const message = row.message
             if (!message) return null
+            const isActiveStreamingMessage =
+              message.role === 'assistant' &&
+              (regeneratingMessageId === message.id ||
+                (isStreaming && lastMessage?.id === message.id))
 
             const previousMessage =
               row.messageIndex > 0 ? messages[row.messageIndex - 1] : null
@@ -617,6 +680,7 @@ export function ChatMessagesVirtual({
               <div
                 key={message.id}
                 data-index={virtualRow.index}
+                data-active-stream-row={isActiveStreamingMessage || undefined}
                 ref={rowVirtualizer.measureElement}
                 className={
                   enteringMessageIds.has(message.id)
@@ -633,7 +697,7 @@ export function ChatMessagesVirtual({
               >
                 <ChatMessageRow
                   message={message}
-                  index={virtualRow.index}
+                  index={row.messageIndex}
                   totalMessages={messages.length}
                   isLoading={isLoading}
                   isStreaming={isStreaming}

@@ -8,6 +8,7 @@ const MIN_HEIGHT_TO_COLLAPSE = 250 // only collapse if taller than this
 interface CollapsibleCodeBlocksProps {
   children: React.ReactNode
   className?: string
+  disabled?: boolean
 }
 
 let blockIdCounter = 0
@@ -65,10 +66,12 @@ function processAllCodeBlocks(container: HTMLElement) {
 export function CollapsibleCodeBlocks({
   children,
   className,
+  disabled = false,
 }: CollapsibleCodeBlocksProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (disabled) return
     const container = containerRef.current
     if (!container) return
 
@@ -128,10 +131,11 @@ export function CollapsibleCodeBlocks({
       clearTimeout(secondTimeout)
       observer.disconnect()
     }
-  }, [])
+  }, [disabled])
 
   // Also re-process when children change significantly
   useEffect(() => {
+    if (disabled) return
     const container = containerRef.current
     if (!container) return
 
@@ -141,7 +145,7 @@ export function CollapsibleCodeBlocks({
     }, 150)
 
     return () => clearTimeout(timeout)
-  }, [children])
+  }, [children, disabled])
 
   return (
     <div ref={containerRef} className={cn('collapsible-code-wrapper', className)}>
