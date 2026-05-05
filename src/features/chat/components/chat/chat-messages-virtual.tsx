@@ -220,11 +220,20 @@ export function ChatMessagesVirtual({
   )
 
   const totalCount = rows.length
+  const stableGetScrollElement = useCallback(
+    () => parentRef.current,
+    [],
+  )
+  const stableGetItemKey = useCallback(
+    (index: number) => getRowKey(rows[index], index),
+    [getRowKey, rows],
+  )
+  const stableEstimateSize = useCallback(() => 140, [])
   const rowVirtualizer = useVirtualizer({
     count: totalCount,
-    getScrollElement: () => parentRef.current,
-    getItemKey: (index) => getRowKey(rows[index], index),
-    estimateSize: () => 140,
+    getScrollElement: stableGetScrollElement,
+    getItemKey: stableGetItemKey,
+    estimateSize: stableEstimateSize,
     overscan: 6,
     useAnimationFrameWithResizeObserver: true,
   })
