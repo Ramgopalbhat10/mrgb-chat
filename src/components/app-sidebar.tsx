@@ -248,7 +248,7 @@ export function AppSidebar({
                                 onClick={() =>
                                   onSelectConversation(conversation.id)
                                 }
-                                className="w-full h-8 px-3 pr-8 text-sm font-normal text-sidebar-foreground hover:text-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-foreground focus-visible:ring-primary/50 focus-visible:ring-offset-0"
+                                className={`w-full h-8 px-3 text-sm font-normal text-sidebar-foreground hover:text-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-foreground focus-visible:ring-primary/50 focus-visible:ring-offset-0 transition-[padding] duration-150 ${isActive || isMobile ? 'pr-8' : 'pr-3 group-hover/item:pr-8'}`}
                               >
                                 {conversation.starred && (
                                   <HugeiconsIcon
