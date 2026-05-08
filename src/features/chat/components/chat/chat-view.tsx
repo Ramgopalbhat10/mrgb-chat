@@ -372,6 +372,7 @@ export function ChatView({
         .map((part) => {
           const webSearchPart = part as unknown as {
             type: 'tool-web_search'
+            toolCallId?: string
             state?: string
             input?: { objective?: string; search_queries?: Array<string> }
             output?: {
@@ -386,6 +387,7 @@ export function ChatView({
           }
           return {
             type: 'tool-web_search' as const,
+            toolCallId: webSearchPart.toolCallId,
             state: 'output-available' as const,
             input: webSearchPart.input,
             output: webSearchPart.output,

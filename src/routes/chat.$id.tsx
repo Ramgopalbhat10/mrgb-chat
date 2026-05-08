@@ -105,9 +105,9 @@ function ChatPage() {
             reasoningParts = parsed.reasoningParts
           }
           if (parsed.webSearchParts && Array.isArray(parsed.webSearchParts)) {
-            webSearchParts = parsed.webSearchParts.map((part: any) => ({
+            webSearchParts = parsed.webSearchParts.map((part: any, i: number) => ({
               ...part,
-              toolCallId: part.toolCallId || `web-search-${msg.id}`,
+              toolCallId: part.toolCallId || `web-search-${msg.id}-${i}`,
             }))
           }
         } catch (e) {
