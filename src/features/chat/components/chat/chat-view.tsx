@@ -34,6 +34,7 @@ interface ChatViewProps {
   conversationId: string
   initialMessages?: Array<UIMessage>
   pendingMessage?: string | null // Initial message from /new to send to AI
+  pendingSearchEnabled?: boolean // Carry over web-search toggle from /new
   scrollToMessageId?: string // Message ID to scroll to (from shared items navigation)
 }
 
@@ -60,6 +61,7 @@ export function ChatView({
   conversationId,
   initialMessages = [],
   pendingMessage = null,
+  pendingSearchEnabled = false,
   scrollToMessageId,
 }: ChatViewProps) {
   const [input, setInput] = useState('')
@@ -86,6 +88,8 @@ export function ChatView({
   const lastSettingsModelIdRef = useRef<string | undefined>(undefined)
   const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null)
   const jumpTargetRef = useRef<string | null>(null)
+  const [webSearchEnabled, setWebSearchEnabled] = useState(pendingSearchEnabled)
+  const webSearchEnabledRef = useRef(pendingSearchEnabled)
   const [suggestions, setSuggestions] = useState<Array<string> | null>(null)
   const [suggestionsStatus, setSuggestionsStatus] = useState<
     'idle' | 'loading' | 'ready' | 'error'
@@ -102,6 +106,35 @@ export function ChatView({
   const conversation = conversations.find((c) => c.id === conversationId)
   const title = conversation?.title
   const titleIsLoading = titleLoadingIds.has(conversationId)
+  
+  // Load webSearchEnabled from conversation once (existing chats only).
+  // Guard with a ref so the effect never re-runs after the initial load,
+  // which prevents the load → persist → cache-update → load loop.
+  const hasLoadedWebSearchRef = useRef(false)
+  useEffect(() => {
+    if (hasLoadedWebSearchRef.current) return
+    if (conversation?.webSearchEnabled !== undefined) {
+      hasLoadedWebSearchRef.current = true
+      setWebSearchEnabled(conversation.webSearchEnabled)
+      webSearchEnabledRef.current = conversation.webSearchEnabled
+    }
+  }, [conversation?.webSearchEnabled])
+
+  // Persist webSearchEnabled to IndexedDB when the user explicitly toggles.
+  // Skip the very first render so we don't overwrite a value that was just
+  // loaded from the DB.  Intentionally excludes `conversation` from deps —
+  // including the whole object would recreate it on every cache write and
+  // trigger an infinite loop.
+  const isFirstWebSearchPersistRef = useRef(true)
+  useEffect(() => {
+    if (isFirstWebSearchPersistRef.current) {
+      isFirstWebSearchPersistRef.current = false
+      return
+    }
+    db.updateConversation(conversationId, { webSearchEnabled }).catch(
+      (error) => console.error('Failed to persist webSearchEnabled:', error),
+    )
+  }, [webSearchEnabled, conversationId])
   const branchInfo = useMemo(() => {
     const isUuidLike = (value?: string | null) =>
       typeof value === 'string' &&
@@ -193,7 +226,10 @@ export function ChatView({
     () =>
       new DefaultChatTransport({
         api: '/api/chat',
-        body: () => ({ modelId: selectedModelIdRef.current }),
+        body: () => ({
+          modelId: selectedModelIdRef.current,
+          searchEnabled: webSearchEnabledRef.current,
+        }),
       }),
     [],
   )
@@ -210,6 +246,20 @@ export function ChatView({
       selectedModelIdRef.current = selectedModelId
     }
   }, [selectedModelId])
+
+  useEffect(() => {
+    webSearchEnabledRef.current = webSearchEnabled
+  }, [webSearchEnabled])
+
+  // When arriving from /new with the toggle on, propagate it to local state
+  // once. Subsequent user toggles take precedence (this only fires when the
+  // pending value flips on).
+  useEffect(() => {
+    if (pendingSearchEnabled) {
+      setWebSearchEnabled(true)
+      webSearchEnabledRef.current = true
+    }
+  }, [pendingSearchEnabled])
 
   useEffect(() => {
     const settingsModelId = llmSettings?.modelId
@@ -317,12 +367,40 @@ export function ChatView({
           }
         })
 
-      return meta?.usage || (reasoningParts && reasoningParts.length > 0)
+      const webSearchParts = message.parts
+        ?.filter((part) => (part as { type?: string }).type === 'tool-web_search')
+        .map((part) => {
+          const webSearchPart = part as unknown as {
+            type: 'tool-web_search'
+            toolCallId?: string
+            state?: string
+            input?: { objective?: string; search_queries?: Array<string> }
+            output?: {
+              results?: Array<{
+                url?: string
+                title?: string | null
+                excerpts?: Array<string> | null
+                publish_date?: string | null
+              }>
+              error?: unknown
+            }
+          }
+          return {
+            type: 'tool-web_search' as const,
+            toolCallId: webSearchPart.toolCallId,
+            state: 'output-available' as const,
+            input: webSearchPart.input,
+            output: webSearchPart.output,
+          }
+        })
+
+      return meta?.usage || (reasoningParts && reasoningParts.length > 0) || (webSearchParts && webSearchParts.length > 0)
         ? JSON.stringify({
             usage: meta?.usage,
             modelId: meta?.modelId,
             gatewayCost: meta?.gatewayCost,
             reasoningParts: reasoningParts?.length ? reasoningParts : undefined,
+            webSearchParts: webSearchParts?.length ? webSearchParts : undefined,
           })
         : null
     },
@@ -1408,6 +1486,8 @@ export function ChatView({
         defaultModelId={conversation?.modelId}
         selectedModelId={selectedModelId}
         onModelChange={handleModelChange}
+        webSearchEnabled={webSearchEnabled}
+        onSearchToggle={setWebSearchEnabled}
       />
     </div>
   )

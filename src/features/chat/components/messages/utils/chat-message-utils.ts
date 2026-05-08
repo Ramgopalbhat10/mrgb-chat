@@ -132,6 +132,76 @@ export function messageAnchorId(id: string): string {
   return `message-${id}`
 }
 
+export interface WebSearchResult {
+  url?: string
+  title?: string | null
+  excerpts?: Array<string> | null
+  publish_date?: string | null
+}
+
+export interface WebSearchPart {
+  type: 'tool-web_search'
+  state?: string
+  input?: { objective?: string; search_queries?: Array<string> }
+  output?: {
+    results?: Array<WebSearchResult>
+    error?: unknown
+  }
+}
+
+export interface WebSearchSource {
+  url: string
+  title: string
+  domain: string
+  excerpt?: string
+  publishDate?: string
+}
+
+export function getWebSearchParts(message: UIMessage): Array<WebSearchPart> {
+  return (
+    message.parts?.filter(
+      (part): part is WebSearchPart =>
+        (part as { type?: string }).type === 'tool-web_search',
+    ) ?? []
+  )
+}
+
+function getDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
+}
+
+export function getWebSearchSources(
+  parts: Array<WebSearchPart>,
+): Array<WebSearchSource> {
+  const seen = new Set<string>()
+  const sources: Array<WebSearchSource> = []
+  for (const part of parts) {
+    const results = part.output?.results
+    if (!Array.isArray(results)) continue
+    for (const result of results) {
+      if (!result?.url || seen.has(result.url)) continue
+      seen.add(result.url)
+      const domain = getDomain(result.url)
+      sources.push({
+        url: result.url,
+        title: result.title?.trim() || domain,
+        domain,
+        excerpt: result.excerpts?.[0]?.trim() || undefined,
+        publishDate: result.publish_date ?? undefined,
+      })
+    }
+  }
+  return sources
+}
+
+export function countWebSearchSources(parts: Array<WebSearchPart>): number {
+  return getWebSearchSources(parts).length
+}
+
 export function getMessageMeta(message: UIMessage): MessageMeta | undefined {
   const msg = message as any
 

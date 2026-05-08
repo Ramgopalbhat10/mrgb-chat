@@ -59,6 +59,7 @@ interface ServerConversation {
   forkedFromConversationId?: string | null
   forkedFromMessageId?: string | null
   forkedAt?: string | null
+  webSearchEnabled?: boolean
 }
 
 async function fetchAllConversationsFromServer(): Promise<Array<ServerConversation>> {
@@ -127,6 +128,7 @@ function mergeConversationsWithLocal(
       forkedFromMessageId,
       forkedAt,
       modelId: localConv?.modelId,
+      webSearchEnabled: localConv?.webSearchEnabled ?? serverConv.webSearchEnabled,
       createdAt: parseDateOrFallback(serverConv.createdAt, fallbackCreatedAt),
       updatedAt: parseDateOrFallback(serverConv.updatedAt, fallbackUpdatedAt),
       lastMessageAt: parseDateOrNull(serverConv.lastMessageAt),
@@ -151,6 +153,7 @@ async function syncConversationsToIndexedDB(conversations: Array<Conversation>) 
         createdAt: conv.createdAt,
         updatedAt: conv.updatedAt,
         modelId: conv.modelId,
+        webSearchEnabled: conv.webSearchEnabled,
       })
     } else {
       await db.createConversation(conv)

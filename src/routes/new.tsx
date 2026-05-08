@@ -26,6 +26,7 @@ function NewChatPage() {
   const navigate = useNavigate()
   const [input, setInput] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false)
   const hasSubmitted = useRef(false)
 
   const setActiveConversationId = useAppStore(
@@ -93,7 +94,11 @@ function NewChatPage() {
         })
 
         // Store pending message in global state for /chat/$id to pick up
-        setPendingNewChat({ conversationId, initialMessage: userText })
+        setPendingNewChat({
+          conversationId,
+          initialMessage: userText,
+          searchEnabled: webSearchEnabled,
+        })
 
         // Set as active and navigate - /chat/$id will handle the rest
         setActiveConversationId(conversationId)
@@ -117,6 +122,7 @@ function NewChatPage() {
       setActiveConversationId,
       setPendingNewChat,
       navigate,
+      webSearchEnabled,
     ],
   )
 
@@ -150,6 +156,8 @@ function NewChatPage() {
         isLoading={isSubmitting}
         selectedModelId={selectedModelId}
         onModelChange={setNewChatModelId}
+        webSearchEnabled={webSearchEnabled}
+        onSearchToggle={setWebSearchEnabled}
       />
     </div>
   )

@@ -23,13 +23,15 @@ import { Streamdown } from 'streamdown'
 import { code } from '@streamdown/code'
 import { MessageUsageIndicator } from '../message-usage'
 import {
-  
   formatThoughtDuration,
   getMessageMeta,
   getMessageText,
   getReasoningParts,
+  getWebSearchParts,
+  getWebSearchSources,
   messageAnchorId
 } from '../utils/chat-message-utils'
+import { WebSearchSources } from '../web-search-sources'
 import type { UIMessage } from 'ai'
 import type { RegenerationOptions } from '@/features/chat/types/regeneration'
 import type {ReasoningSession} from '../utils/chat-message-utils';
@@ -173,6 +175,15 @@ function ChatMessageRowComponent({
   const isLastAssistant = index === totalMessages - 1 && !isUser
   const reasoningParts = useMemo(() => getReasoningParts(message), [message])
   const hasReasoning = reasoningParts.length > 0
+  const webSearchParts = useMemo(() => getWebSearchParts(message), [message])
+  const webSearchSources = useMemo(
+    () => getWebSearchSources(webSearchParts),
+    [webSearchParts],
+  )
+  const hasWebSearch = webSearchParts.length > 0
+  const isWebSearchStreaming = webSearchParts.some(
+    (part) => part.state !== 'output-available' && part.state !== 'output-error',
+  )
   const reasoningDurationSeconds =
     reasoningSession?.endedAt && reasoningSession.startedAt
       ? Math.max(
@@ -412,6 +423,12 @@ function ChatMessageRowComponent({
                     </span>
                   )}
                 </button>
+              )}
+              {hasWebSearch && !showRegenerationLoading && (
+                <WebSearchSources
+                  sources={webSearchSources}
+                  isStreaming={isWebSearchStreaming}
+                />
               )}
               {showRegenerationLoading ? (
                 <div className="text-sm py-2">

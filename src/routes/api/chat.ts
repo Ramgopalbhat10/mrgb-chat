@@ -1,6 +1,7 @@
 import { gateway } from '@ai-sdk/gateway'
+import { searchTool } from '@parallel-web/ai-sdk-tools'
 import { createFileRoute } from '@tanstack/react-router'
-import { convertToModelMessages, streamText } from 'ai'
+import { convertToModelMessages, stepCountIs, streamText } from 'ai'
 import type { UIMessage } from 'ai'
 import { requireAuth } from '@/server/auth/get-session'
 import { getLlmSettings } from '@/server/llm-settings'
@@ -94,13 +95,19 @@ export const Route = createFileRoute('/api/chat')({
           messageId,
           trigger,
           regeneration,
+          searchEnabled,
         }: {
           messages: Array<UIMessage>
           modelId?: string
           messageId?: string
           trigger?: string
           regeneration?: RegenerationPayload
+          searchEnabled?: boolean
         } = await request.json()
+
+        if (searchEnabled && !process.env.PARALLEL_API_KEY) {
+          return new Response('Missing PARALLEL_API_KEY', { status: 500 })
+        }
 
         const settings = await getLlmSettings()
         const model =
@@ -164,6 +171,12 @@ export const Route = createFileRoute('/api/chat')({
           seed: settings.seed,
           maxRetries: settings.maxRetries,
           abortSignal: abortController?.signal,
+          ...(searchEnabled
+            ? {
+                tools: { web_search: searchTool },
+                stopWhen: stepCountIs(5),
+              }
+            : {}),
           onError: () => {
             if (timeoutId) {
               clearTimeout(timeoutId)
