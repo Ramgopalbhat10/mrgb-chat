@@ -1,17 +1,17 @@
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Attachment01Icon,
-  GlobalIcon,
   SentIcon,
 } from '@hugeicons/core-free-icons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ModelSelector } from './model-selector'
 import { ContextUsage } from './context-usage'
+import { SearchProviderPicker } from './search-provider-picker'
 import type { UIMessage } from 'ai'
 import type {ModelMetadata} from '@/features/chat/data/queries';
 import {
-  
+
   availableModelsQueryOptions
 } from '@/features/chat/data/queries'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,8 @@ interface ChatInputProps {
   defaultModelId?: string
   selectedModelId?: string
   onModelChange?: (modelId: string) => void
+  webSearchEnabled?: boolean
+  onSearchToggle?: (next: boolean) => void
 }
 
 // Default model - Gemini 3 Flash
@@ -39,6 +41,8 @@ export function ChatInput({
   defaultModelId,
   selectedModelId,
   onModelChange,
+  webSearchEnabled = false,
+  onSearchToggle,
 }: ChatInputProps) {
   // Track if user has manually selected a model in this session
   const userSelectedRef = useRef(false)
@@ -185,24 +189,10 @@ export function ChatInput({
                 selectedModelId={effectiveModelId}
                 onSelect={handleModelSelect}
               />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 gap-1.5 shrink-0 text-muted-foreground hidden sm:flex"
-              >
-                <HugeiconsIcon icon={GlobalIcon} size={16} strokeWidth={2} />
-                <span className="text-xs font-medium">Search</span>
-              </Button>
-              {/* Mobile: icon only */}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0 text-muted-foreground sm:hidden"
-              >
-                <HugeiconsIcon icon={GlobalIcon} size={16} strokeWidth={2} />
-              </Button>
+              <SearchProviderPicker
+                enabled={webSearchEnabled}
+                onToggle={(next) => onSearchToggle?.(next)}
+              />
             </div>
             {/* Right side - context usage and send */}
             <div className="flex items-center gap-2 shrink-0">

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.parallel.ai)",
+      "WebFetch(domain:ai-sdk.dev)",
+      "Bash(bun add *)",
+      "Bash(bun run *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp"
+    ]
+  }
+}

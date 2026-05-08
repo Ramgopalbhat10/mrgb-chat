@@ -4,6 +4,7 @@ import { subscribeWithSelector } from 'zustand/middleware'
 interface PendingNewChat {
   conversationId: string
   initialMessage: string
+  searchEnabled?: boolean
 }
 
 interface AppState {

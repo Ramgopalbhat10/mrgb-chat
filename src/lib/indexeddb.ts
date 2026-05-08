@@ -6,6 +6,7 @@ export interface Conversation {
   id: string
   title: string
   modelId?: string
+  webSearchEnabled?: boolean
   starred: boolean
   archived: boolean
   isPublic: boolean

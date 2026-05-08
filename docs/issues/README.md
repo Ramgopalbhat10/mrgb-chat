@@ -13,3 +13,4 @@ Issue template: `docs/issues/template.md`
 | 5 | Add `AUTH_BYPASS=true` Single-Flag Local Auth Bypass | resolved | None | `src/lib/auth-bypass-config.ts`, `src/lib/auth.ts`, `src/server/auth/get-session.ts`, `src/routes/api/auth/$.ts`, `src/routes/login.tsx`, `README.md` |
 | 6 | Establish ESLint Baseline (autofix + targeted rule overrides) | resolved | None | `eslint.config.js`, `src/**` (autofix sweep) |
 | 7 | Chat Rendering Stability | resolved | None | `src/features/chat/components/chat/chat-messages-virtual.tsx`, `src/features/chat/components/messages/chat-message-row/index.tsx`, `src/components/collapsible-code-blocks.tsx`, `src/styles.css` |
+| 8 | Web Search Toggle Infinite Loop + New-Chat Empty View | resolved | Story 1 | `src/features/chat/components/chat/chat-view.tsx`, `src/routes/chat.$id.tsx` |

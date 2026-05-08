@@ -29,31 +29,37 @@ function ChatPage() {
     (state) => state.setActiveConversationId,
   )
   const pendingNewChat = useAppStore((state) => state.pendingNewChat)
+  const consumePendingNewChat = useAppStore((state) => state.consumePendingNewChat)
   const generateTitle = useGenerateTitle()
   const queryClient = useQueryClient()
 
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
+  const [pendingSearchEnabled, setPendingSearchEnabled] = useState(false)
   const hasConsumedPending = useRef(false)
 
   useEffect(() => {
     setPendingMessage(null)
+    setPendingSearchEnabled(false)
     hasConsumedPending.current = false
   }, [id])
 
   useEffect(() => {
     setActiveConversationId(id)
 
-    if (!hasConsumedPending.current) {
-      if (pendingNewChat && pendingNewChat.conversationId === id) {
-        hasConsumedPending.current = true
-        generateTitle.mutate({
-          conversationId: id,
-          userMessage: pendingNewChat.initialMessage,
-        })
-        setPendingMessage(pendingNewChat.initialMessage)
-      }
+    // Subscribe to pendingNewChat so this effect is reactive when the store
+    // is populated by /new just before navigation.  Use a ref to guard
+    // against StrictMode double-invocation and page-refresh re-runs
+    // (store resets to null on refresh so the guard below is sufficient).
+    if (!hasConsumedPending.current && pendingNewChat?.conversationId === id) {
+      hasConsumedPending.current = true
+      // Capture values before clearing the store
+      const { initialMessage, searchEnabled } = pendingNewChat
+      consumePendingNewChat()
+      generateTitle.mutate({ conversationId: id, userMessage: initialMessage })
+      setPendingMessage(initialMessage)
+      setPendingSearchEnabled(searchEnabled ?? false)
     }
-  }, [generateTitle, id, pendingNewChat, setActiveConversationId])
+  }, [generateTitle, id, pendingNewChat, consumePendingNewChat, setActiveConversationId])
 
   useEffect(() => {
     hydrateMessagesCache(queryClient, id).catch((error) => {
@@ -83,6 +89,7 @@ function ChatPage() {
     return messages.map((msg) => {
       let metadata: any = undefined
       let reasoningParts: Array<{ type: 'reasoning'; text: string; state: 'done' }> = []
+      let webSearchParts: Array<any> = []
 
       if (msg.metaJson) {
         try {
@@ -97,6 +104,12 @@ function ChatPage() {
           if (parsed.reasoningParts && Array.isArray(parsed.reasoningParts)) {
             reasoningParts = parsed.reasoningParts
           }
+          if (parsed.webSearchParts && Array.isArray(parsed.webSearchParts)) {
+            webSearchParts = parsed.webSearchParts.map((part: any) => ({
+              ...part,
+              toolCallId: part.toolCallId || `web-search-${msg.id}`,
+            }))
+          }
         } catch (e) {
           console.warn('Failed to parse metaJson:', e)
         }
@@ -104,8 +117,9 @@ function ChatPage() {
 
       const parts: UIMessage['parts'] = [
         ...reasoningParts,
+        ...webSearchParts,
         { type: 'text' as const, text: msg.content },
-      ]
+      ] as UIMessage['parts']
 
       return {
         id: msg.id,
@@ -129,6 +143,7 @@ function ChatPage() {
       conversationId={id}
       initialMessages={initialMessages}
       pendingMessage={pendingMessage}
+      pendingSearchEnabled={pendingSearchEnabled}
       scrollToMessageId={scrollToMessageId}
     />
   )
