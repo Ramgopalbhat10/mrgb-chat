@@ -89,7 +89,7 @@ export function AppSidebar({
         <SidebarTrigger className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent" />
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
+      <SidebarContent className="pl-2">
         <SidebarGroup className="py-4">
           <Button
             onClick={onNewChat}
@@ -166,11 +166,11 @@ export function AppSidebar({
           </SidebarMenu>
         </SidebarGroup>
 
-        <SidebarGroup className="py-1 flex-1 overflow-hidden flex flex-col">
+        <SidebarGroup className="py-1 pr-0 flex-1 overflow-hidden flex flex-col">
           <SidebarGroupLabel className="text-[11px] font-medium tracking-wider text-muted-foreground/70 uppercase px-3 mb-1">
             Recent
           </SidebarGroupLabel>
-          <div className="relative mb-2">
+          <div className="relative mb-2 pr-2">
             <HugeiconsIcon
               icon={Search01Icon}
               size={14}
