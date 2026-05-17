@@ -117,10 +117,12 @@ export function WebSearchSources({
         )}
       </button>
       {expanded && hasSources ? (
-        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-          {sources.map((source) => (
-            <SourceCard key={source.url} source={source} />
-          ))}
+        <div className="max-h-52 overflow-y-auto">
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            {sources.map((source) => (
+              <SourceCard key={source.url} source={source} />
+            ))}
+          </div>
         </div>
       ) : null}
     </div>

@@ -89,7 +89,7 @@ export function AppSidebar({
         <SidebarTrigger className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent" />
       </SidebarHeader>
 
-      <SidebarContent className="pl-2">
+      <SidebarContent>
         <SidebarGroup className="py-4">
           <Button
             onClick={onNewChat}
@@ -183,7 +183,7 @@ export function AppSidebar({
             />
           </div>
           <SidebarGroupContent className="flex-1 overflow-y-auto overflow-x-hidden">
-            <SidebarMenu>
+            <SidebarMenu className="pr-2">
               {!isHydrated ? (
                 // Loading skeleton - matches conversation item dimensions
                 <div className="flex flex-col gap-0.5 p-0.5">
