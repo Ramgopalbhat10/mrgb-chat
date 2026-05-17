@@ -15,3 +15,4 @@ Issue template: `docs/issues/template.md`
 | 7 | Chat Rendering Stability | resolved | None | `src/features/chat/components/chat/chat-messages-virtual.tsx`, `src/features/chat/components/messages/chat-message-row/index.tsx`, `src/components/collapsible-code-blocks.tsx`, `src/styles.css` |
 | 8 | Web Search Toggle Infinite Loop + New-Chat Empty View | resolved | Story 1 | `src/features/chat/components/chat/chat-view.tsx`, `src/routes/chat.$id.tsx` |
 | 9 | Sidebar Scrollbar Gap From Right Border | resolved | None | `src/components/app-sidebar.tsx` |
+| 10 | Web Search Sources Fixed Height + Sidebar List Padding Balance | resolved | None | `src/features/chat/components/messages/web-search-sources/index.tsx`, `src/components/app-sidebar.tsx` |

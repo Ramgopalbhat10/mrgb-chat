@@ -1,15 +1,16 @@
 # Progress
 
-Current issue: `docs/issues/issue-9.md`
+Current issue: `docs/issues/issue-10.md`
 
-Current section: Issue 9 — Sidebar Scrollbar Gap From Right Border
+Current section: Issue 10 — Web Search Sources Fixed Height + Sidebar List Padding Balance
 
 Previous tasks (latest completed batch only):
-- [x] Implemented fix: removed right padding from SidebarContent and scrollable SidebarGroup, added pr-2 to search container
-- [x] Lint and build pass
+- [x] Added max-h-52 scrollable wrapper to web search sources grid
+- [x] Balanced sidebar list padding: removed SidebarContent pl-2, added pr-2 to conversation SidebarMenu
+- [x] Lint pass (0 errors)
 
 Next tasks:
 - None - all tasks completed.
 
 Notes:
-- Branch: `fix/sidebar-scrollbar-gap`
+- Branch: `fix/1779008344-ui-search-sources-sidebar-padding`
